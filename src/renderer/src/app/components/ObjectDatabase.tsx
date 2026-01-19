@@ -1,8 +1,9 @@
-import { useState } from 'react';
 import { Database, Package, FileText, GitCommit, FolderTree, ArrowRight, Info } from 'lucide-react';
 import { ObjectDetail } from './ObjectDetail';
 import { ObjectGraph } from './ObjectGraph';
 import { GitObjectsGuide } from './GitObjectsGuide';
+import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks';
+import { setSelectedObject, setView, setShowGuide } from '@renderer/app/store/slices/gitSlice';
 
 export interface GitObject {
   hash: string;
@@ -99,7 +100,7 @@ export const mockObjects: Array<CommitObject | TreeObject | BlobObject | GitObje
     size: 1847,
     path: 'src/components/Auth.tsx',
     content: `import { useState } from 'react';
-import { login, logout } from '@/utils/api';
+import { login, logout } from '@renderer/utils/api';
 
 export function Auth() {
   const [user, setUser] = useState(null);
@@ -202,9 +203,11 @@ npm start
 ];
 
 export function ObjectDatabase() {
-  const [selectedObject, setSelectedObject] = useState<typeof mockObjects[0] | null>(null);
-  const [view, setView] = useState<'list' | 'graph'>('list');
-  const [showGuide, setShowGuide] = useState(false);
+  const dispatch = useAppDispatch();
+  const selectedObject = useAppSelector((state) => state.git.selectedObject);
+  const view = useAppSelector((state) => state.git.view);
+  const showGuide = useAppSelector((state) => state.git.showGuide);
+  const objects = useAppSelector((state) => state.git.objects);
   
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -230,7 +233,7 @@ export function ObjectDatabase() {
     return `${bytes} bytes`;
   };
   
-  const objectCounts = mockObjects.reduce((acc, obj) => {
+  const objectCounts = objects.reduce((acc, obj) => {
     acc[obj.type] = (acc[obj.type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -247,7 +250,7 @@ export function ObjectDatabase() {
             
             <div className="flex items-center gap-1 bg-[#252526] rounded p-0.5">
               <button
-                onClick={() => setView('list')}
+                onClick={() => dispatch(setView('list'))}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   view === 'list' ? 'bg-blue-500/20 text-blue-300' : 'text-gray-400 hover:text-gray-300'
                 }`}
@@ -255,7 +258,7 @@ export function ObjectDatabase() {
                 List
               </button>
               <button
-                onClick={() => setView('graph')}
+                onClick={() => dispatch(setView('graph'))}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   view === 'graph' ? 'bg-blue-500/20 text-blue-300' : 'text-gray-400 hover:text-gray-300'
                 }`}
@@ -314,10 +317,10 @@ export function ObjectDatabase() {
         <div className="flex-1 min-h-0 overflow-auto p-4">
           {view === 'list' ? (
             <div className="space-y-1">
-              {mockObjects.map((obj) => (
+              {objects.map((obj) => (
                 <div
                   key={obj.hash}
-                  onClick={() => setSelectedObject(obj)}
+                  onClick={() => dispatch(setSelectedObject(obj))}
                   className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
                     selectedObject?.hash === obj.hash 
                       ? 'bg-blue-500/20 border border-blue-500/30' 
@@ -337,11 +340,11 @@ export function ObjectDatabase() {
             </div>
           ) : (
             <ObjectGraph 
-              objects={mockObjects} 
+              objects={objects} 
               selectedHash={selectedObject?.hash}
               onSelectObject={(hash) => {
-                const obj = mockObjects.find(o => o.hash === hash);
-                if (obj) setSelectedObject(obj);
+                const obj = objects.find(o => o.hash === hash);
+                if (obj) dispatch(setSelectedObject(obj));
               }}
             />
           )}
@@ -352,10 +355,10 @@ export function ObjectDatabase() {
         {selectedObject ? (
           <ObjectDetail 
             object={selectedObject} 
-            allObjects={mockObjects}
+            allObjects={objects}
             onSelectObject={(hash) => {
-              const obj = mockObjects.find(o => o.hash === hash);
-              if (obj) setSelectedObject(obj);
+              const obj = objects.find(o => o.hash === hash);
+              if (obj) dispatch(setSelectedObject(obj));
             }}
           />
         ) : (

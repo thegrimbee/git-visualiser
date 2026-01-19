@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { Provider } from 'react-redux';
+import { store } from './store/store';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { setActiveTab } from './store/slices/appSlice';
 import { TitleBar } from './components/TitleBar';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitGraph } from './components/CommitGraph';
@@ -8,18 +11,19 @@ import { StatusBar } from './components/StatusBar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { GitCommit, FileText, Database } from 'lucide-react';
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('commits');
+function AppContent() {
+  const dispatch = useAppDispatch();
+  const activeTab = useAppSelector((state) => state.app.activeTab);
   
   return (
     <div className="h-screen w-screen flex flex-col bg-[#1e1e1e] overflow-hidden">
-      <TitleBar />
+      {/* <TitleBar /> */}
       
       <div className="flex-1 flex overflow-hidden">
         <BranchPanel />
         
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={(value) => dispatch(setActiveTab(value))} className="flex-1 flex flex-col">
             <div className="bg-[#252526] border-b border-[#1e1e1e] px-2">
               <TabsList className="h-10 bg-transparent gap-1">
                 <TabsTrigger 
@@ -63,5 +67,13 @@ export default function App() {
       
       <StatusBar />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Provider store={store}>
+      <AppContent />
+    </Provider>
   );
 }
