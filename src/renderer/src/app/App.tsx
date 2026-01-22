@@ -2,7 +2,6 @@ import { Provider } from 'react-redux';
 import { store } from './store/store';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { setActiveTab } from './store/slices/appSlice';
-import { TitleBar } from './components/TitleBar';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitGraph } from './components/CommitGraph';
 import { FileChanges } from './components/FileChanges';
@@ -17,7 +16,6 @@ function AppContent() {
   
   return (
     <div className="h-screen w-screen flex flex-col bg-[#1e1e1e] overflow-hidden">
-      {/* <TitleBar /> */}
       
       <div className="flex-1 flex overflow-hidden">
         <BranchPanel />
