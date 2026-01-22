@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { mockObjects, GitObject, CommitObject, TreeObject, BlobObject } from '@renderer/app/components/ObjectDatabase';
 
-interface GitState {
+export interface GitState {
   selectedObject: GitObject | CommitObject | TreeObject | BlobObject | null;
   view: 'list' | 'graph';
   showGuide: boolean;
