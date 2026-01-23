@@ -257,9 +257,9 @@ export function ObjectDatabase() {
   }, {} as Record<string, number>);
   
   return (
-    <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden">
-      <div className="w-96 border-r border-gray-700 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-700 flex-shrink-0 overflow-y-auto max-h-[50vh]">
+    <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden h-full">
+      <div className="flex-1 border-r border-gray-700 flex flex-col overflow-hidden relative">
+        <div className="p-4 border-b border-gray-700 flex-shrink-0 max-h-[50vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-purple-400" />
@@ -332,63 +332,69 @@ export function ObjectDatabase() {
           </div> */}
         </div>
         
-        <div className="flex-1 min-h-0 overflow-auto p-4">
-          {view === 'list' ? (
-            <div className="space-y-1">
-              {objects.map((obj) => (
-                <div
-                  key={obj.hash}
-                  onClick={() => dispatch(setSelectedObject(obj))}
-                  className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
-                    selectedObject?.hash === obj.hash 
-                      ? 'bg-blue-500/20 border border-blue-500/30' 
-                      : 'hover:bg-white/5'
-                  }`}
-                >
-                  {getTypeIcon(obj.type)}
-                  <code className="text-xs text-gray-400 font-mono flex-1 truncate">{obj.hash}</code>
-                  <span className={`text-xs px-2 py-0.5 rounded border ${getTypeColor(obj.type)}`}>
-                    {obj.type}
-                  </span>
-                  {selectedObject?.hash === obj.hash && (
-                    <ArrowRight className="w-3 h-3 text-blue-400" />
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <ObjectGraph 
-              objects={objects} 
-              selectedHash={selectedObject?.hash}
+        <div className="flex-1 relative">
+          <div className={`absolute inset-0 ${view === 'list' ? 'overflow-auto p-4' : 'overflow-hidden p-0'}`}>
+            {view === 'list' ? (
+              <div className="space-y-1">
+                {objects.map((obj) => (
+                  <div
+                    key={obj.hash}
+                    onClick={() => dispatch(setSelectedObject(obj))}
+                    className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
+                      selectedObject?.hash === obj.hash 
+                        ? 'bg-blue-500/20 border border-blue-500/30' 
+                        : 'hover:bg-white/5'
+                    }`}
+                  >
+                    {getTypeIcon(obj.type)}
+                    <code className="text-xs text-gray-400 font-mono flex-1 truncate">{obj.hash}</code>
+                    <span className={`text-xs px-2 py-0.5 rounded border ${getTypeColor(obj.type)}`}>
+                      {obj.type}
+                    </span>
+                    {selectedObject?.hash === obj.hash && (
+                      <ArrowRight className="w-3 h-3 text-blue-400" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ObjectGraph 
+                objects={objects} 
+                selectedHash={selectedObject?.hash}
+                onSelectObject={(hash) => {
+                  const obj = objects.find(o => o.hash === hash);
+                  if (obj) dispatch(setSelectedObject(obj));
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* CHANGED: Same absolute inset strategy for the details panel */}
+      <div className="flex-1 border-l border-gray-700 bg-[#1e1e1e] relative">
+        <div className="absolute inset-0 overflow-auto">
+          {selectedObject ? (
+            <ObjectDetail 
+              object={selectedObject} 
+              allObjects={objects}
               onSelectObject={(hash) => {
                 const obj = objects.find(o => o.hash === hash);
                 if (obj) dispatch(setSelectedObject(obj));
               }}
             />
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">Select an object to view details</p>
+                <p className="text-xs text-gray-500 mt-1">Click on any object in the list to explore</p>
+              </div>
+            </div>
           )}
         </div>
       </div>
-      
-      <div className="flex-1 overflow-auto">
-        {selectedObject ? (
-          <ObjectDetail 
-            object={selectedObject} 
-            allObjects={objects}
-            onSelectObject={(hash) => {
-              const obj = objects.find(o => o.hash === hash);
-              if (obj) dispatch(setSelectedObject(obj));
-            }}
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-400">Select an object to view details</p>
-              <p className="text-xs text-gray-500 mt-1">Click on any object in the list to explore</p>
-            </div>
-          </div>
-        )}
-      </div>
+ 
     </div>
   );
 }

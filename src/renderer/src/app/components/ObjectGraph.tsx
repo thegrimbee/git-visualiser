@@ -20,6 +20,7 @@ export function ObjectGraph({ objects, selectedHash, onSelectObject }: ObjectGra
   const [panOffset, setPanOffset] = useState({ x: 50, y: 50 }); // Start with some padding
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Constants for layout
   const NODE_RADIUS = 18;
@@ -112,28 +113,57 @@ export function ObjectGraph({ objects, selectedHash, onSelectObject }: ObjectGra
 
     return positionMap;
   }, [objects]);
+  // Handle Resize
+  useEffect(() => {
+    if (!canvasRef.current?.parentElement) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        });
+      }
+    });
+
+    observer.observe(canvasRef.current.parentElement);
+    return () => observer.disconnect();
+  }, []);
 
   // 2. Render Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
+    // Use containerSize if available, fallback to rect
+    // This dependency ensures we re-render when the div resizes
+    const displayWidth = containerSize.width || canvas.clientWidth;
+    const displayHeight = containerSize.height || canvas.clientHeight;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
     // Handle High DPI
     const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    
+    // Explicitly set dimensions based on container to avoid "out of bounds" or stretching
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    
+    // CSS style needs to match purely for consistency, though class 'w-full h-full' usually handles it
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+
     ctx.scale(dpr, dpr);
     
     // Background
     ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
     
     ctx.save();
     ctx.translate(panOffset.x, panOffset.y);
+
 
     // --- Draw Connections First (so they are behind nodes) ---
     ctx.lineWidth = 1.5;
@@ -254,7 +284,7 @@ export function ObjectGraph({ objects, selectedHash, onSelectObject }: ObjectGra
 
     ctx.restore();
     
-  }, [objects, selectedHash, panOffset, nodePositions]);
+  }, [objects, selectedHash, panOffset, nodePositions, containerSize]);
   
   // 3. Interaction Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
