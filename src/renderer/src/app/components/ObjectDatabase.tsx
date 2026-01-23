@@ -90,9 +90,27 @@ export const mockObjects: Array<CommitObject | TreeObject | BlobObject | GitObje
     size: 96,
     entries: [
       { mode: '100644', type: 'blob', hash: 'b1c8e4d9a3f7b2e6', name: 'api.ts' },
-      { mode: '100644', type: 'blob', hash: 'd5e2a8f3c7b4d9a1', name: 'README.md' },
+      { mode: '040000', type: 'tree', hash: 'abc123def456ghi7', name: 'utils' },
     ],
     referencedBy: ['b4e5d1a3c7f2e8b9', 'c8f2a3b1e5d7a9c4', 'e7a3f2d8c1b5e4a9'],
+  } as TreeObject,
+  {
+    hash: 'abc123def456ghi7',
+    type: 'tree',
+    size: 96,
+    entries: [
+      { mode: '100644', type: 'blob', hash: 'd5e2a8f3c7b4d9a1', name: 'README.md' },
+      { mode: '040000', type: 'tree', hash: 'fgh789ijk012lmn3', name: 'utils' },
+    ],
+    referencedBy: ['f1d4e8a2c9b6f3e7'],
+  } as TreeObject,
+  {
+    hash: 'fgh789ijk012lmn3',
+    type: 'tree',
+    size: 96,
+    entries: [
+    ],
+    referencedBy: ['abc123def456ghi7'],
   } as TreeObject,
   {
     hash: 'c2a6d9e3f7b1d4a8',
@@ -279,7 +297,7 @@ export function ObjectDatabase() {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-2">
+          {/* <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-500/10 border border-blue-500/20 rounded p-2">
               <div className="flex items-center gap-1 mb-1">
                 <GitCommit className="w-3 h-3 text-blue-400" />
@@ -311,7 +329,7 @@ export function ObjectDatabase() {
               </div>
               <span className="text-lg font-semibold text-purple-300">{objectCounts.tag || 0}</span>
             </div>
-          </div>
+          </div> */}
         </div>
         
         <div className="flex-1 min-h-0 overflow-auto p-4">
