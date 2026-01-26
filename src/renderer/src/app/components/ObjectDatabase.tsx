@@ -1,9 +1,10 @@
-import { Database, Package, FileText, GitCommit, FolderTree, ArrowRight, Info } from 'lucide-react';
+import { Database, Package, FileText, GitCommit, FolderTree, ArrowRight, Info, Check, ChevronDown } from 'lucide-react';
 import { ObjectDetail } from './ObjectDetail';
 import { ObjectGraph } from './ObjectGraph';
 import { GitObjectsGuide } from './GitObjectsGuide';
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks';
-import { setSelectedObject, setView, setShowGuide } from '@renderer/app/store/slices/gitSlice';
+import { setSelectedObject, setView, setShowGuide, toggleVisibleType, loadMoreObjects } from '@renderer/app/store/slices/gitSlice';
+import { useMemo } from 'react';
 
 export interface GitObject {
   hash: string;
@@ -226,7 +227,8 @@ export function ObjectDatabase() {
   const view = useAppSelector((state) => state.git.view);
   const showGuide = useAppSelector((state) => state.git.showGuide);
   const objects = useAppSelector((state) => state.git.objects);
-  
+  const visibleTypes = useAppSelector((state) => state.git.visibleTypes);
+  const displayLimit = useAppSelector((state) => state.git.displayLimit);
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'commit': return <GitCommit className="w-3 h-3 text-blue-400" />;
@@ -256,6 +258,19 @@ export function ObjectDatabase() {
     return acc;
   }, {} as Record<string, number>);
   
+  // derived filtered list
+  const filteredObjects = useMemo(() => {
+    return objects.filter(obj => visibleTypes.includes(obj.type));
+  }, [objects, visibleTypes]);
+
+  // derived paginated list for the sidebar
+  const visibleListObjects = useMemo(() => {
+    return filteredObjects.slice(0, displayLimit);
+  }, [filteredObjects, displayLimit]);
+
+  // Helper just for checking inclusion in local rendering
+  const isTypeVisible = (type: string) => visibleTypes.includes(type);
+
   return (
     <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden h-full">
       <div className="flex-1 border-r border-gray-700 flex flex-col overflow-hidden relative">
@@ -294,6 +309,29 @@ export function ObjectDatabase() {
               <p className="text-xs text-gray-300 leading-relaxed">
                 Git stores everything as objects. Click on any object to explore how they reference each other.
               </p>
+            </div>
+          </div>
+
+          <div className="mb-2">
+            <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Filter Objects</h3>
+            <div className="flex flex-wrap gap-2">
+              {['commit', 'tree', 'blob', 'tag'].map(type => (
+                <button
+                  key={type}
+                  onClick={() => dispatch(toggleVisibleType(type))}
+                  className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-all ${
+                    isTypeVisible(type)
+                      ? getTypeColor(type) 
+                      : 'bg-[#252526] border-gray-700 text-gray-500 hover:border-gray-600 opacity-60'
+                  }`}
+                >
+                  {isTypeVisible(type) ? <Check className="w-3 h-3" /> : <div className="w-3 h-3" />}
+                  <span className="capitalize">{type}s</span>
+                  <span className="opacity-50 ml-1 text-[10px] bg-black/20 px-1 rounded-full">
+                    {objectCounts[type] || 0}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
           
@@ -336,30 +374,36 @@ export function ObjectDatabase() {
           <div className={`absolute inset-0 ${view === 'list' ? 'overflow-auto p-4' : 'overflow-hidden p-0'}`}>
             {view === 'list' ? (
               <div className="space-y-1">
-                {objects.map((obj) => (
-                  <div
-                    key={obj.hash}
-                    onClick={() => dispatch(setSelectedObject(obj))}
-                    className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
-                      selectedObject?.hash === obj.hash 
-                        ? 'bg-blue-500/20 border border-blue-500/30' 
-                        : 'hover:bg-white/5'
-                    }`}
-                  >
-                    {getTypeIcon(obj.type)}
-                    <code className="text-xs text-gray-400 font-mono flex-1 truncate">{obj.hash}</code>
-                    <span className={`text-xs px-2 py-0.5 rounded border ${getTypeColor(obj.type)}`}>
-                      {obj.type}
-                    </span>
-                    {selectedObject?.hash === obj.hash && (
-                      <ArrowRight className="w-3 h-3 text-blue-400" />
-                    )}
+                {visibleListObjects.length > 0 ? (
+                  visibleListObjects.map((obj) => (
+                    <div
+                      key={obj.hash}
+                      onClick={() => dispatch(setSelectedObject(obj))}
+                      className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
+                        selectedObject?.hash === obj.hash 
+                          ? 'bg-blue-500/20 border border-blue-500/30' 
+                          : 'hover:bg-white/5'
+                      }`}
+                    >
+                      {getTypeIcon(obj.type)}
+                      <code className="text-xs text-gray-400 font-mono flex-1 truncate">{obj.hash}</code>
+                      <span className={`text-xs px-2 py-0.5 rounded border ${getTypeColor(obj.type)}`}>
+                        {obj.type}
+                      </span>
+                      {selectedObject?.hash === obj.hash && (
+                        <ArrowRight className="w-3 h-3 text-blue-400" />
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 text-sm mt-10">
+                    No objects match the selected filters.
                   </div>
-                ))}
+                )}
               </div>
             ) : (
               <ObjectGraph 
-                objects={objects} 
+                objects={filteredObjects} 
                 selectedHash={selectedObject?.hash}
                 onSelectObject={(hash) => {
                   const obj = objects.find(o => o.hash === hash);
@@ -370,8 +414,7 @@ export function ObjectDatabase() {
           </div>
         </div>
       </div>
-      
-      {/* CHANGED: Same absolute inset strategy for the details panel */}
+    
       <div className="flex-1 border-l border-gray-700 bg-[#1e1e1e] relative">
         <div className="absolute inset-0 overflow-auto">
           {selectedObject ? (

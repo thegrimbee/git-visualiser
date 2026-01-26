@@ -204,7 +204,9 @@ export function ObjectDetail({ object, allObjects, onSelectObject }: ObjectDetai
                       ) : (
                         <FolderTree className="w-3 h-3 text-green-400" />
                       )}
-                      <code className="text-xs font-mono flex-1">{hash}</code>
+                      <code className={`text-xs font-mono flex-1 ${
+                        refObj.type === 'commit' ? 'text-blue-400' : 'text-green-400'
+                      }`}>{hash}</code>
                       <span className={`text-xs px-1.5 py-0.5 rounded ${
                         refObj.type === 'commit' ? 'text-blue-400' : 'text-green-400'
                       }`}>
