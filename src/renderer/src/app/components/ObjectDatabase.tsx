@@ -1,9 +1,10 @@
-import { Database, Package, FileText, GitCommit, FolderTree, ArrowRight, Info } from 'lucide-react';
+import { Database, Package, FileText, GitCommit, FolderTree, ArrowRight, Info, Check, ChevronDown } from 'lucide-react';
 import { ObjectDetail } from './ObjectDetail';
 import { ObjectGraph } from './ObjectGraph';
 import { GitObjectsGuide } from './GitObjectsGuide';
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks';
-import { setSelectedObject, setView, setShowGuide } from '@renderer/app/store/slices/gitSlice';
+import { setSelectedObject, setView, setShowGuide, toggleVisibleType, loadMoreObjects } from '@renderer/app/store/slices/gitSlice';
+import { useMemo } from 'react';
 
 export interface GitObject {
   hash: string;
@@ -90,9 +91,27 @@ export const mockObjects: Array<CommitObject | TreeObject | BlobObject | GitObje
     size: 96,
     entries: [
       { mode: '100644', type: 'blob', hash: 'b1c8e4d9a3f7b2e6', name: 'api.ts' },
-      { mode: '100644', type: 'blob', hash: 'd5e2a8f3c7b4d9a1', name: 'README.md' },
+      { mode: '040000', type: 'tree', hash: 'abc123def456ghi7', name: 'utils' },
     ],
     referencedBy: ['b4e5d1a3c7f2e8b9', 'c8f2a3b1e5d7a9c4', 'e7a3f2d8c1b5e4a9'],
+  } as TreeObject,
+  {
+    hash: 'abc123def456ghi7',
+    type: 'tree',
+    size: 96,
+    entries: [
+      { mode: '100644', type: 'blob', hash: 'd5e2a8f3c7b4d9a1', name: 'README.md' },
+      { mode: '040000', type: 'tree', hash: 'fgh789ijk012lmn3', name: 'utils' },
+    ],
+    referencedBy: ['f1d4e8a2c9b6f3e7'],
+  } as TreeObject,
+  {
+    hash: 'fgh789ijk012lmn3',
+    type: 'tree',
+    size: 96,
+    entries: [
+    ],
+    referencedBy: ['abc123def456ghi7'],
   } as TreeObject,
   {
     hash: 'c2a6d9e3f7b1d4a8',
@@ -208,7 +227,8 @@ export function ObjectDatabase() {
   const view = useAppSelector((state) => state.git.view);
   const showGuide = useAppSelector((state) => state.git.showGuide);
   const objects = useAppSelector((state) => state.git.objects);
-  
+  const visibleTypes = useAppSelector((state) => state.git.visibleTypes);
+  const displayLimit = useAppSelector((state) => state.git.displayLimit);
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'commit': return <GitCommit className="w-3 h-3 text-blue-400" />;
@@ -238,10 +258,23 @@ export function ObjectDatabase() {
     return acc;
   }, {} as Record<string, number>);
   
+  // derived filtered list
+  const filteredObjects = useMemo(() => {
+    return objects.filter(obj => visibleTypes.includes(obj.type));
+  }, [objects, visibleTypes]);
+
+  // derived paginated list for the sidebar
+  const visibleListObjects = useMemo(() => {
+    return filteredObjects.slice(0, displayLimit);
+  }, [filteredObjects, displayLimit]);
+
+  // Helper just for checking inclusion in local rendering
+  const isTypeVisible = (type: string) => visibleTypes.includes(type);
+
   return (
-    <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden">
-      <div className="w-96 border-r border-gray-700 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-700 flex-shrink-0 overflow-y-auto max-h-[50vh]">
+    <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden h-full">
+      <div className="flex-1 border-r border-gray-700 flex flex-col overflow-hidden relative">
+        <div className="p-4 border-b border-gray-700 flex-shrink-0 max-h-[50vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-purple-400" />
@@ -278,8 +311,31 @@ export function ObjectDatabase() {
               </p>
             </div>
           </div>
+
+          <div className="mb-2">
+            <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Filter Objects</h3>
+            <div className="flex flex-wrap gap-2">
+              {['commit', 'tree', 'blob', 'tag'].map(type => (
+                <button
+                  key={type}
+                  onClick={() => dispatch(toggleVisibleType(type))}
+                  className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-all ${
+                    isTypeVisible(type)
+                      ? getTypeColor(type) 
+                      : 'bg-[#252526] border-gray-700 text-gray-500 hover:border-gray-600 opacity-60'
+                  }`}
+                >
+                  {isTypeVisible(type) ? <Check className="w-3 h-3" /> : <div className="w-3 h-3" />}
+                  <span className="capitalize">{type}s</span>
+                  <span className="opacity-50 ml-1 text-[10px] bg-black/20 px-1 rounded-full">
+                    {objectCounts[type] || 0}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
           
-          <div className="grid grid-cols-2 gap-2">
+          {/* <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-500/10 border border-blue-500/20 rounded p-2">
               <div className="flex items-center gap-1 mb-1">
                 <GitCommit className="w-3 h-3 text-blue-400" />
@@ -311,66 +367,77 @@ export function ObjectDatabase() {
               </div>
               <span className="text-lg font-semibold text-purple-300">{objectCounts.tag || 0}</span>
             </div>
-          </div>
+          </div> */}
         </div>
         
-        <div className="flex-1 min-h-0 overflow-auto p-4">
-          {view === 'list' ? (
-            <div className="space-y-1">
-              {objects.map((obj) => (
-                <div
-                  key={obj.hash}
-                  onClick={() => dispatch(setSelectedObject(obj))}
-                  className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
-                    selectedObject?.hash === obj.hash 
-                      ? 'bg-blue-500/20 border border-blue-500/30' 
-                      : 'hover:bg-white/5'
-                  }`}
-                >
-                  {getTypeIcon(obj.type)}
-                  <code className="text-xs text-gray-400 font-mono flex-1 truncate">{obj.hash}</code>
-                  <span className={`text-xs px-2 py-0.5 rounded border ${getTypeColor(obj.type)}`}>
-                    {obj.type}
-                  </span>
-                  {selectedObject?.hash === obj.hash && (
-                    <ArrowRight className="w-3 h-3 text-blue-400" />
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <ObjectGraph 
-              objects={objects} 
-              selectedHash={selectedObject?.hash}
+        <div className="flex-1 relative">
+          <div className={`absolute inset-0 ${view === 'list' ? 'overflow-auto p-4' : 'overflow-hidden p-0'}`}>
+            {view === 'list' ? (
+              <div className="space-y-1">
+                {visibleListObjects.length > 0 ? (
+                  visibleListObjects.map((obj) => (
+                    <div
+                      key={obj.hash}
+                      onClick={() => dispatch(setSelectedObject(obj))}
+                      className={`flex items-center gap-2 p-2 rounded transition-colors cursor-pointer ${
+                        selectedObject?.hash === obj.hash 
+                          ? 'bg-blue-500/20 border border-blue-500/30' 
+                          : 'hover:bg-white/5'
+                      }`}
+                    >
+                      {getTypeIcon(obj.type)}
+                      <code className="text-xs text-gray-400 font-mono flex-1 truncate">{obj.hash}</code>
+                      <span className={`text-xs px-2 py-0.5 rounded border ${getTypeColor(obj.type)}`}>
+                        {obj.type}
+                      </span>
+                      {selectedObject?.hash === obj.hash && (
+                        <ArrowRight className="w-3 h-3 text-blue-400" />
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 text-sm mt-10">
+                    No objects match the selected filters.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <ObjectGraph 
+                objects={filteredObjects} 
+                selectedHash={selectedObject?.hash}
+                onSelectObject={(hash) => {
+                  const obj = objects.find(o => o.hash === hash);
+                  if (obj) dispatch(setSelectedObject(obj));
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    
+      <div className="flex-1 border-l border-gray-700 bg-[#1e1e1e] relative">
+        <div className="absolute inset-0 overflow-auto">
+          {selectedObject ? (
+            <ObjectDetail 
+              object={selectedObject} 
+              allObjects={objects}
               onSelectObject={(hash) => {
                 const obj = objects.find(o => o.hash === hash);
                 if (obj) dispatch(setSelectedObject(obj));
               }}
             />
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">Select an object to view details</p>
+                <p className="text-xs text-gray-500 mt-1">Click on any object in the list to explore</p>
+              </div>
+            </div>
           )}
         </div>
       </div>
-      
-      <div className="flex-1 overflow-auto">
-        {selectedObject ? (
-          <ObjectDetail 
-            object={selectedObject} 
-            allObjects={objects}
-            onSelectObject={(hash) => {
-              const obj = objects.find(o => o.hash === hash);
-              if (obj) dispatch(setSelectedObject(obj));
-            }}
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-400">Select an object to view details</p>
-              <p className="text-xs text-gray-500 mt-1">Click on any object in the list to explore</p>
-            </div>
-          </div>
-        )}
-      </div>
+ 
     </div>
   );
 }
