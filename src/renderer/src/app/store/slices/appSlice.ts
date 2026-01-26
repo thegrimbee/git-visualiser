@@ -5,7 +5,7 @@ export interface AppState {
 }
 
 const initialState: AppState = {
-  activeTab: 'commits',
+  activeTab: 'repository',
 };
 
 const appSlice = createSlice({

@@ -8,6 +8,9 @@ export interface GitState {
   objects: Array<CommitObject | TreeObject | BlobObject | GitObject>;
   visibleTypes: string[];
   displayLimit: number;
+  repoPath: string | null;
+  repoName: string | null;
+  isRepoLoaded: boolean;
 }
 
 const initialState: GitState = {
@@ -17,12 +20,28 @@ const initialState: GitState = {
   objects: mockObjects,
   visibleTypes: ['commit', 'tree', 'blob', 'tag'],
   displayLimit: 50,
+  repoPath: null,
+  repoName: null,
+  isRepoLoaded: false,
 };
 
 const gitSlice = createSlice({
   name: 'git',
   initialState,
   reducers: {
+    setRepository: (state, action: PayloadAction<{ path: string; name: string }>) => {
+      state.repoPath = action.payload.path;
+      state.repoName = action.payload.name;
+      state.isRepoLoaded = true;
+    },
+    closeRepository: (state) => {
+      state.repoPath = null;
+      state.repoName = null;
+      state.isRepoLoaded = false;
+      // Optional: clear objects or reset view
+      state.objects = []; 
+      state.selectedObject = null;
+    },
     setSelectedObject: (state, action: PayloadAction<GitObject | CommitObject | TreeObject | BlobObject | null>) => {
       state.selectedObject = action.payload;
     },
@@ -48,5 +67,14 @@ const gitSlice = createSlice({
   },
 });
 
-export const { setSelectedObject, setView, setShowGuide, toggleVisibleType, loadMoreObjects } = gitSlice.actions;
+export const { 
+  setSelectedObject, 
+  setView, 
+  setShowGuide, 
+  toggleVisibleType, 
+  loadMoreObjects,
+  setRepository,
+  closeRepository
+} = gitSlice.actions;
+
 export default gitSlice.reducer;
