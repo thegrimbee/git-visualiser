@@ -1,18 +1,31 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks';
 import { setRepository, closeRepository } from '@renderer/app/store/slices/gitSlice';
-import { FolderOpen, HardDrive, X, Clock, GitBranch, GitCommit } from 'lucide-react';
+import { FolderOpen, HardDrive, X, Clock, GitBranch, GitCommit, AlertCircle } from 'lucide-react';
 
 export function Repository() {
   const dispatch = useAppDispatch();
   const { repoPath, repoName, isRepoLoaded, objects } = useAppSelector((state) => state.git);
-  
+  const [error, setError] = useState<string | null>(null);
+
   // Ref for the hidden file input
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFolderSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     const files = event.target.files;
     if (files && files.length > 0) {
+      // Check if .git folder exists in the selected directory
+      const hasGit = Array.from(files).some(file => file.webkitRelativePath.includes('/.git/'));
+
+      if (!hasGit) {
+        setError('The selected folder is not a valid git repository (missing .git folder)');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
       // In Electron/Chrome with webkitdirectory, the first file usually contains the full path info
       // or we can infer the root folder name
       const file = files[0];
@@ -51,6 +64,13 @@ export function Repository() {
           <p className="text-gray-400 text-sm mb-8">
             Select a local folder containing a .git repository to visualize its history and objects.
           </p>
+
+          {error && (
+            <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded flex items-center gap-3 text-red-400 text-sm text-left">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
           
           <button
             onClick={triggerFileSelect}
