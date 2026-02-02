@@ -37,7 +37,6 @@ export interface TreeObject extends GitObject {
 export interface BlobObject extends GitObject {
   type: 'blob';
   content: string;
-  path?: string;
 }
 
 export function ObjectDatabase() {

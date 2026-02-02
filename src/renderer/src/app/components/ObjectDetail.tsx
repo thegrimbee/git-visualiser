@@ -247,16 +247,6 @@ export function ObjectDetail({ object, allObjects, onSelectObject }: ObjectDetai
           </code>
         </div>
         
-        {blob.path && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-4 h-4 text-gray-400" />
-              <span className="text-xs text-gray-400">File Path</span>
-            </div>
-            <p className="text-sm text-gray-300 font-mono">{blob.path}</p>
-          </div>
-        )}
-        
         <div>
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-4 h-4 text-gray-400" />
@@ -273,7 +263,6 @@ export function ObjectDetail({ object, allObjects, onSelectObject }: ObjectDetai
             </div>
             <div className="bg-[#1e1e1e] rounded border border-gray-700">
               <div className="bg-[#252526] px-3 py-2 border-b border-gray-700 flex items-center justify-between">
-                <span className="text-xs text-gray-400 font-mono">{blob.path?.split('/').pop() || 'file'}</span>
                 <span className="text-xs text-gray-500">{blob.size} bytes</span>
               </div>
               <pre className="p-3 text-xs overflow-auto max-h-96">
