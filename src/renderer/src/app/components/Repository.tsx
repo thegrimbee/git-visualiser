@@ -1,53 +1,57 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks';
-import { setRepository, closeRepository } from '@renderer/app/store/slices/gitSlice';
-import { FolderOpen, HardDrive, X, Clock, GitBranch, GitCommit, AlertCircle } from 'lucide-react';
+import { setRepository, closeRepository, setObjects } from '@renderer/app/store/slices/gitSlice';
+import { FolderOpen, HardDrive, X, Clock, GitBranch, GitCommit, AlertCircle, Loader2 } from 'lucide-react';
 
 export function Repository() {
   const dispatch = useAppDispatch();
   const { repoPath, repoName, isRepoLoaded, objects } = useAppSelector((state) => state.git);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Ref for the hidden file input
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFolderSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectDirectory = async () => {
     setError(null);
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      // Check if .git folder exists in the selected directory
-      const hasGit = Array.from(files).some(file => file.webkitRelativePath.includes('/.git/'));
+    
+    // 1. Get the absolute path from the system dialog
+    const path = await window.api.selectDirectory();
+    console.log('Selected path:', path);
+    if (!path) return; // User cancelled the dialog
 
-      if (!hasGit) {
-        setError('The selected folder is not a valid git repository (missing .git folder)');
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        return;
-      }
+    setIsLoading(true);
 
-      // In Electron/Chrome with webkitdirectory, the first file usually contains the full path info
-      // or we can infer the root folder name
-      const file = files[0];
+    try {
+      // 2. Validate and Load
+      // Attempts to read .git/objects. If .git is missing, this throws an error immediately.
+      const loadedObjects = await window.api.loadGitRepository(path);
       
-      // Note: In a real Electron app, 'path' property exposes the full system path.
-      // In a browser, this might be faked or limited.
-      const fullPath = 'path' in file ? (file as any).path : file.webkitRelativePath.split('/')[0];
+      // 3. If we reach here, the .git folder exists and is valid
+      const folderName = path.split(/[\\/]/).pop();
       
-      // Get folder name
-      const folderName = file.webkitRelativePath 
-        ? file.webkitRelativePath.split('/')[0] 
-        : fullPath.split(/[\\/]/).pop();
-
       dispatch(setRepository({
-        path: fullPath,
+        path: path,
         name: folderName || 'Untitled Repo'
       }));
-    }
-  };
+      
+      if (loadedObjects && loadedObjects.length > 0) {
+          // @ts-ignore
+          dispatch(setObjects(loadedObjects));
+      } else {
+          setError('Repository loaded but no loose objects found (they might be packed).');
+      }
 
-  const triggerFileSelect = () => {
-    fileInputRef.current?.click();
+    } catch (err: any) {
+      console.error(err);
+      // 4. Handle Missing .git Error
+      // The Main process throws "No .git/objects found" which we catch here
+      if (err.message && err.message.includes('No .git')) {
+        setError('The selected folder is not a valid git repository (missing .git folder)');
+      } else {
+        setError('Failed to load repository. Ensure you have read permissions.');
+      }
+      dispatch(closeRepository());
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const commitCount = objects.filter(o => o.type === 'commit').length;
@@ -73,11 +77,12 @@ export function Repository() {
           )}
           
           <button
-            onClick={triggerFileSelect}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors flex items-center justify-center gap-2"
+            onClick={handleSelectDirectory}
+            disabled={isLoading}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded font-medium transition-colors flex items-center justify-center gap-2"
           >
-            <HardDrive className="w-4 h-4" />
-            Browse Folders
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />}
+            {isLoading ? 'Reading .git folder...' : 'Browse Folders'}
           </button>
           
           <div className="mt-6 pt-6 border-t border-gray-700 text-left">
@@ -93,17 +98,6 @@ export function Repository() {
             </div>
           </div>
         </div>
-        
-        {/* Hidden Input for Directory Selection */}
-        <input 
-          type="file" 
-          ref={fileInputRef}
-          onChange={handleFolderSelect}
-          style={{ display: 'none' }}
-          // @ts-ignore - 'webkitdirectory' is non-standard but supported in Electron/Chrome
-          webkitdirectory="" 
-          directory=""
-        />
       </div>
     );
   }
@@ -121,13 +115,16 @@ export function Repository() {
           <p className="text-gray-500 text-sm mt-1 font-mono">{repoPath}</p>
         </div>
         
-        <button 
-          onClick={() => dispatch(closeRepository())}
-          className="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#3d3d3d] border border-gray-700 text-gray-300 text-xs rounded transition-colors flex items-center gap-2"
+        <button
+          onClick={handleSelectDirectory}
+          disabled={isLoading}
+          className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
         >
-          <X className="w-3 h-3" />
-          Close Repository
+           <HardDrive className="w-4 h-4" />
+           Switch Repo
         </button>
+
+        <div className="mt-6 pt-6 border-t border-gray-700 text-left"></div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-8">

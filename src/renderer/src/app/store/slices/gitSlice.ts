@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { mockObjects, GitObject, CommitObject, TreeObject, BlobObject } from '@renderer/app/components/ObjectDatabase';
+import { GitObject, CommitObject, TreeObject, BlobObject } from '@renderer/app/components/ObjectDatabase';
 
 export interface GitState {
   selectedObject: GitObject | CommitObject | TreeObject | BlobObject | null;
@@ -17,7 +17,7 @@ const initialState: GitState = {
   selectedObject: null,
   view: 'list',
   showGuide: false,
-  objects: mockObjects,
+  objects: [],
   visibleTypes: ['commit', 'tree', 'blob', 'tag'],
   displayLimit: 50,
   repoPath: null,
@@ -33,6 +33,9 @@ const gitSlice = createSlice({
       state.repoPath = action.payload.path;
       state.repoName = action.payload.name;
       state.isRepoLoaded = true;
+    },
+    setObjects: (state, action: PayloadAction<Array<CommitObject | TreeObject | BlobObject | GitObject>>) => {
+      state.objects = action.payload;
     },
     closeRepository: (state) => {
       state.repoPath = null;
@@ -74,7 +77,8 @@ export const {
   toggleVisibleType, 
   loadMoreObjects,
   setRepository,
-  closeRepository
+  closeRepository,
+  setObjects
 } = gitSlice.actions;
 
 export default gitSlice.reducer;
