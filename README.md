@@ -38,6 +38,7 @@ $ npm run build:linux
 - As a user curious about Git internals, I want to see how files and commits are represented in Git so that I can learn about Git's data model.
 - As a user curious about Git internals, I want to explore the relationships between commits, branches, and tags so that I can grasp Git's version control concepts.
 - As a developer, I want to be able to find files and their history in a Git repository so that I can debug issues related to version control.
+- As a user, I want to be able to select remote repositories so that I can visualize projects hosted on platforms like GitHub or GitLab.
 
 ### Features
 - Browse and select a Git repository from the local file system.
@@ -45,4 +46,9 @@ $ npm run build:linux
 - Show the relationships between commits, blobs, trees, and tags in a visual graph.
 - Display detailed information about commits, including author, date, and commit message.
 - Show the contents of files at specific commits.
+
+
+### Future Improvements
 - Support filtering and searching of Git objects.
+- Implement a more advanced graph visualization for better clarity.
+- Add support for remote repositories and branches.
