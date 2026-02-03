@@ -75,6 +75,7 @@ function parseTreeBuffer(buffer: Buffer) {
 // Helper to parse Commit content text
 function parseCommitContent(content: string) {
   const lines = content.split('\n')
+  console.log("Commit lines:", lines)
   const metadata: any = { parent: [] }
   let messageStart = 0
 
@@ -180,7 +181,7 @@ ipcMain.handle('git:load-repo', async (_event, repoPath: string) => {
             })
         }
     })
-    console.log(resultObjects)
+    console.log("resultObjects", resultObjects)
     return resultObjects
 
   } catch (error) {

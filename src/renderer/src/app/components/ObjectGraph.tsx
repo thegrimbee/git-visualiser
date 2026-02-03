@@ -42,7 +42,7 @@ export function ObjectGraph({ objects, selectedHash, onSelectObject }: ObjectGra
     const visited = new Set<string>();
 
     const commits = objects.filter(o => o.type === 'commit') as CommitObject[];
-    
+
     commits.forEach(c => {
       // Commits don't have "depth" in this context, but their root tree is depth 0
       if (c.tree) queue.push({ hash: c.tree, depth: 0 });
