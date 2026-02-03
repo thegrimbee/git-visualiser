@@ -1,6 +1,6 @@
-import { GitBranch, AlertCircle, Clock } from 'lucide-react';
+import { GitBranch, AlertCircle, Clock } from 'lucide-react'
 
-export function StatusBar() {
+export function StatusBar(): React.JSX.Element {
   return (
     <div className="h-6 bg-[#007acc] flex items-center justify-between px-3 text-xs text-white">
       <div className="flex items-center gap-4">
@@ -13,7 +13,7 @@ export function StatusBar() {
           <span>Last fetch: 2 minutes ago</span>
         </div>
       </div>
-      
+
       <div className="flex items-center gap-4">
         <span>5 changes</span>
         <span>1 staged</span>
@@ -23,5 +23,5 @@ export function StatusBar() {
         </div>
       </div>
     </div>
-  );
+  )
 }

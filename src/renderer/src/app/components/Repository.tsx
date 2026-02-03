@@ -1,60 +1,68 @@
-import { useState } from 'react';
-import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks';
-import { setRepository, closeRepository, setObjects } from '@renderer/app/store/slices/gitSlice';
-import { FolderOpen, HardDrive, X, Clock, GitBranch, GitCommit, AlertCircle, Loader2 } from 'lucide-react';
+import { useState } from 'react'
+import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
+import { setRepository, closeRepository, setObjects } from '@renderer/app/store/slices/gitSlice'
+import {
+  FolderOpen,
+  HardDrive,
+  Clock,
+  GitBranch,
+  GitCommit,
+  AlertCircle,
+  Loader2
+} from 'lucide-react'
 
-export function Repository() {
-  const dispatch = useAppDispatch();
-  const { repoPath, repoName, isRepoLoaded, objects } = useAppSelector((state) => state.git);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+export function Repository(): React.JSX.Element {
+  const dispatch = useAppDispatch()
+  const { repoPath, repoName, isRepoLoaded, objects } = useAppSelector((state) => state.git)
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSelectDirectory = async () => {
-    setError(null);
-    
+  const handleSelectDirectory = async (): Promise<void> => {
+    setError(null)
+
     // 1. Get the absolute path from the system dialog
-    const path = await window.api.selectDirectory();
-    console.log('Selected path:', path);
-    if (!path) return; // User cancelled the dialog
+    const path = await window.api.selectDirectory()
+    console.log('Selected path:', path)
+    if (!path) return // User cancelled the dialog
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
       // 2. Validate and Load
       // Attempts to read .git/objects. If .git is missing, this throws an error immediately.
-      const loadedObjects = await window.api.loadGitRepository(path);
-      
-      // 3. If we reach here, the .git folder exists and is valid
-      const folderName = path.split(/[\\/]/).pop();
-      
-      dispatch(setRepository({
-        path: path,
-        name: folderName || 'Untitled Repo'
-      }));
-      
-      if (loadedObjects && loadedObjects.length > 0) {
-          // @ts-ignore
-          dispatch(setObjects(loadedObjects));
-      } else {
-          setError('Repository loaded but no loose objects found (they might be packed).');
-      }
+      const loadedObjects = await window.api.loadGitRepository(path)
 
-    } catch (err: any) {
-      console.error(err);
+      // 3. If we reach here, the .git folder exists and is valid
+      const folderName = path.split(/[\\/]/).pop()
+
+      dispatch(
+        setRepository({
+          path: path,
+          name: folderName || 'Untitled Repo'
+        })
+      )
+
+      if (loadedObjects && loadedObjects.length > 0) {
+        dispatch(setObjects(loadedObjects))
+      } else {
+        setError('Repository loaded but no loose objects found (they might be packed).')
+      }
+    } catch (err: unknown) {
+      console.error(err)
       // 4. Handle Missing .git Error
       // The Main process throws "No .git/objects found" which we catch here
-      if (err.message && err.message.includes('No .git')) {
-        setError('The selected folder is not a valid git repository (missing .git folder)');
+      if (err instanceof Error && err.message.includes('No .git')) {
+        setError('The selected folder is not a valid git repository (missing .git folder)')
       } else {
-        setError('Failed to load repository. Ensure you have read permissions.');
+        setError('Failed to load repository. Ensure you have read permissions.')
       }
-      dispatch(closeRepository());
+      dispatch(closeRepository())
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
-  const commitCount = objects.filter(o => o.type === 'commit').length;
+  const commitCount = objects.filter((o) => o.type === 'commit').length
 
   if (!isRepoLoaded) {
     return (
@@ -63,7 +71,7 @@ export function Repository() {
           <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <FolderOpen className="w-8 h-8 text-blue-400" />
           </div>
-          
+
           <h2 className="text-xl font-semibold text-white mb-2">Open a Repository</h2>
           <p className="text-gray-400 text-sm mb-8">
             Select a local folder containing a .git repository to visualize its history and objects.
@@ -75,31 +83,39 @@ export function Repository() {
               <span>{error}</span>
             </div>
           )}
-          
+
           <button
             onClick={handleSelectDirectory}
             disabled={isLoading}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded font-medium transition-colors flex items-center justify-center gap-2"
           >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />}
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <HardDrive className="w-4 h-4" />
+            )}
             {isLoading ? 'Reading .git folder...' : 'Browse Folders'}
           </button>
-          
+
           <div className="mt-6 pt-6 border-t border-gray-700 text-left">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-3">Recent</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-3">
+              Recent
+            </p>
             <div className="space-y-2">
               <div className="flex items-center gap-3 p-2 hover:bg-white/5 rounded cursor-pointer group">
                 <FolderOpen className="w-4 h-4 text-gray-500 group-hover:text-gray-300" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-300 truncate">git-visualiser</p>
-                  <p className="text-xs text-gray-600 truncate">d:/Education/CS3281/git-visualiser</p>
+                  <p className="text-xs text-gray-600 truncate">
+                    d:/Education/CS3281/git-visualiser
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -114,14 +130,14 @@ export function Repository() {
           </h2>
           <p className="text-gray-500 text-sm mt-1 font-mono">{repoPath}</p>
         </div>
-        
+
         <button
           onClick={handleSelectDirectory}
           disabled={isLoading}
           className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
         >
-           <HardDrive className="w-4 h-4" />
-           Switch Repo
+          <HardDrive className="w-4 h-4" />
+          Switch Repo
         </button>
 
         <div className="mt-6 pt-6 border-t border-gray-700 text-left"></div>
@@ -158,15 +174,16 @@ export function Repository() {
           <p className="text-lg font-medium text-white pl-1 mt-1">Just now</p>
         </div>
       </div>
-      
+
       <div className="flex-1 bg-[#252526] rounded border border-gray-700 p-6 flex items-center justify-center text-center">
         <div className="max-w-md">
-           <h3 className="text-lg font-medium text-white mb-2">Repository Ready</h3>
-           <p className="text-gray-400 text-sm">
-             Head over to the <b>Objects</b> or <b>Commits</b> tab to inspect the internal Git structure of this repository.
-           </p>
+          <h3 className="text-lg font-medium text-white mb-2">Repository Ready</h3>
+          <p className="text-gray-400 text-sm">
+            Head over to the <b>Objects</b> or <b>Commits</b> tab to inspect the internal Git
+            structure of this repository.
+          </p>
         </div>
       </div>
     </div>
-  );
+  )
 }
