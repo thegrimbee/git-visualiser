@@ -69,10 +69,6 @@ jobs:
         # Note: This will produce an unsigned .dmg unless you add code signing secrets
         run: npm run build:mac
 
-      - name: Build for Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run build:linux
-
       # Upload the built artifacts (exe, dmg, AppImage) to the GitHub Action Run page
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
