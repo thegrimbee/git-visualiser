@@ -1,4 +1,5 @@
 import { GitBranch, Star, Check, Info } from 'lucide-react'
+import { useAppSelector } from '../store/hooks'
 
 interface Branch {
   name: string
@@ -15,6 +16,7 @@ const mockBranches: Branch[] = [
 ]
 
 export function BranchPanel(): React.JSX.Element {
+  const { headPointer } = useAppSelector((state) => state.git)
   return (
     <div className="w-64 bg-[#252526] border-r border-[#1e1e1e] p-3 overflow-auto">
       <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-700">
@@ -68,12 +70,14 @@ export function BranchPanel(): React.JSX.Element {
           <Star className="w-3 h-3 text-gray-400" />
           <span className="text-xs text-gray-400">HEAD</span>
         </div>
-        <div className="pl-5">
-          <code className="text-xs text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded">
-            a7f3c2e
-          </code>
-          <p className="text-xs text-gray-500 mt-1">refs/heads/main</p>
-        </div>
+        {headPointer && (
+          <div className="pl-5">
+            <code className="text-xs text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded">
+              {headPointer}
+            </code>
+            <p className="text-xs text-gray-500 mt-1">refs/heads/{headPointer}</p>
+          </div>
+        )}
       </div>
     </div>
   )

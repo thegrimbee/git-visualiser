@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
-import { setRepository, closeRepository, setObjects } from '@renderer/app/store/slices/gitSlice'
+import {
+  setRepository,
+  closeRepository,
+  setObjects,
+  setHeadPointer
+} from '@renderer/app/store/slices/gitSlice'
 import {
   FolderOpen,
   HardDrive,
@@ -30,7 +35,9 @@ export function Repository(): React.JSX.Element {
     try {
       // 2. Validate and Load
       // Attempts to read .git/objects. If .git is missing, this throws an error immediately.
-      const loadedObjects = await window.api.loadGitRepository(path)
+      const loadedObjects = await window.api.getGitObjects(path)
+      const headRef = await window.api.getGitHead(path)
+      dispatch(setHeadPointer(headRef))
 
       // 3. If we reach here, the .git folder exists and is valid
       const folderName = path.split(/[\\/]/).pop()

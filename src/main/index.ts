@@ -108,7 +108,7 @@ function parseCommitContent(content: string): {
 }
 
 // IPC Handler to load repository data
-ipcMain.handle('git:load-repo', async (_event, repoPath: string) => {
+ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
   const objectsPath = join(repoPath, '.git', 'objects')
   if (!fs.existsSync(objectsPath)) {
     throw new Error('No .git/objects found')
@@ -206,6 +206,20 @@ ipcMain.handle('git:load-repo', async (_event, repoPath: string) => {
   } catch (error) {
     console.error('Error scanning Git objects:', error)
     return []
+  }
+})
+
+ipcMain.handle('git:get-head', async (_event, repoPath: string) => {
+  const headPath = join(repoPath, '.git', 'HEAD')
+  if (!fs.existsSync(headPath)) {
+    throw new Error('No .git/HEAD found')
+  }
+  const headContent = await fs.promises.readFile(headPath, 'utf8')
+  const refMatch = headContent.match(/ref: refs\/heads\/(.+)\s*/)
+  if (refMatch) {
+    return refMatch[1]
+  } else {
+    return null
   }
 })
 

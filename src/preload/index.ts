@@ -3,7 +3,8 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
-  loadGitRepository: (path: string) => ipcRenderer.invoke('git:load-repo', path),
+  getGitObjects: (path: string) => ipcRenderer.invoke('git:get-objects', path),
+  getGitHead: (path: string) => ipcRenderer.invoke('git:get-head', path),
   selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory')
 }
 

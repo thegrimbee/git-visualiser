@@ -4,7 +4,8 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
-      loadGitRepository: (path: string) => Promise<
+      getGitHead: (path: string) => Promise<string | null>
+      getGitObjects: (path: string) => Promise<
         Array<{
           hash: string
           // Only allow specific git types, as expected by renderer

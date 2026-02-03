@@ -39,7 +39,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -53,13 +53,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Linux-specific: Install libraries often needed for AppImage/Snap creation
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libarchive-tools libopenjp2-7
-
       - name: Build for Windows
         if: matrix.os == 'windows-latest'
         run: npm run build:win
@@ -68,10 +61,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         # Note: This will produce an unsigned .dmg unless you add code signing secrets
         run: npm run build:mac
-
-      - name: Build for Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run build:linux
 
       # Upload the built artifacts (exe, dmg, AppImage) to the GitHub Action Run page
       - name: Upload Artifacts
