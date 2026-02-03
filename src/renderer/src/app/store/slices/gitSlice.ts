@@ -16,6 +16,7 @@ export interface GitState {
   repoPath: string | null
   repoName: string | null
   isRepoLoaded: boolean
+  headPointer: string | null
 }
 
 const initialState: GitState = {
@@ -27,7 +28,8 @@ const initialState: GitState = {
   displayLimit: 50,
   repoPath: null,
   repoName: null,
-  isRepoLoaded: false
+  isRepoLoaded: false,
+  headPointer: null
 }
 
 const gitSlice = createSlice({
@@ -38,6 +40,9 @@ const gitSlice = createSlice({
       state.repoPath = action.payload.path
       state.repoName = action.payload.name
       state.isRepoLoaded = true
+    },
+    setHeadPointer: (state, action: PayloadAction<string | null>) => {
+      state.headPointer = action.payload
     },
     setObjects: (
       state,
@@ -89,7 +94,8 @@ export const {
   loadMoreObjects,
   setRepository,
   closeRepository,
-  setObjects
+  setObjects,
+  setHeadPointer
 } = gitSlice.actions
 
 export default gitSlice.reducer
