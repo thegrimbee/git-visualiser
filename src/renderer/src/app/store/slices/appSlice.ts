@@ -1,22 +1,22 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 export interface AppState {
-  activeTab: string;
+  activeTab: string
 }
 
 const initialState: AppState = {
-  activeTab: 'repository',
-};
+  activeTab: 'repository'
+}
 
 const appSlice = createSlice({
   name: 'app',
   initialState,
   reducers: {
     setActiveTab: (state, action: PayloadAction<string>) => {
-      state.activeTab = action.payload;
-    },
-  },
-});
+      state.activeTab = action.payload
+    }
+  }
+})
 
-export const { setActiveTab } = appSlice.actions;
-export default appSlice.reducer;
+export const { setActiveTab } = appSlice.actions
+export default appSlice.reducer
