@@ -122,7 +122,7 @@ export function ObjectGraph({
     // 4. Tags (Place near their referenced object)
     const tags = objects.filter((o) => o.type === 'tag') as TagObject[]
     tags.forEach((tag, index) => {
-      const targetObj = objectMap.get(tag.object)
+      const targetObj = objectMap.get(tag.objectHash)
       let baseX = COL_START_OBJECTS
       let baseY = index * ROW_HEIGHT
       if (targetObj) {

@@ -378,12 +378,12 @@ export function ObjectDetail({
             <span className="text-xs text-gray-400">Points To</span>
           </div>
           <button
-            onClick={() => onSelectObject(tag.object)}
+            onClick={() => onSelectObject(tag.objectHash)}
             className="flex items-center gap-2 p-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded transition-colors w-full"
           >
             <GitCommit className="w-3 h-3 text-purple-400" />
             <code className="text-xs text-purple-400 font-mono flex-1 text-left">
-              {tag.object}
+              {tag.objectHash}
             </code>
             <ArrowRight className="w-3 h-3 text-purple-400" />
           </button>
