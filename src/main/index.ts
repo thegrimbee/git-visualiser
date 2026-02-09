@@ -119,6 +119,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     hash: string
     type: string
     size: number
+    objectHash?: string
     references?: string[]
     referencedBy: string[]
     content?: string
@@ -141,6 +142,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
             hash: file,
             type: 'tag',
             size: 0,
+            objectHash: object,
             references: [object],
             referencedBy: []
           })
