@@ -43,6 +43,7 @@ $ npm run build:linux
 - As a user, I want to be able to select remote repositories so that I can visualize projects hosted on platforms like GitHub or GitLab.
 - As a user, I want to be able to limit the number of objects shown in the graph so that the application remains responsive and usable.
 - As a user, I want to be able to filter the displayed objects by type (commits, blobs, trees, tags) so that I can focus on specific aspects of the repository.
+- As a user, I want to be able to either see live changes in the repository or refresh the repository so that I can keep the visualization up-to-date with the latest commits.
 
 ### Features
 
@@ -52,6 +53,7 @@ $ npm run build:linux
 - Display detailed information about commits, including author, date, and commit message.
 - Show the contents of files at specific commits.
 - Filter objects by type (commits, blobs, trees, tags).
+- Refresh the repository to load the latest changes.
 
 ### Future Improvements
 
