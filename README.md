@@ -44,6 +44,7 @@ $ npm run build:linux
 - As a user, I want to be able to limit the number of objects shown in the graph so that the application remains responsive and usable.
 - As a user, I want to be able to filter the displayed objects by type (commits, blobs, trees, tags) so that I can focus on specific aspects of the repository.
 - As a user, I want to be able to either see live changes in the repository or refresh the repository so that I can keep the visualization up-to-date with the latest commits.
+- As a user, I want to be able to customize the visualization (e.g. dragging nodes, changing colors) so that I can tailor the experience to my preferences.
 
 ### Features
 
@@ -54,6 +55,7 @@ $ npm run build:linux
 - Show the contents of files at specific commits.
 - Filter objects by type (commits, blobs, trees, tags).
 - Refresh the repository to load the latest changes.
+- Add draggable functionality to nodes in the graph to allow custom positioning.
 
 ### Future Improvements
 
