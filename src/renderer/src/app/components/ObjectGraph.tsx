@@ -135,7 +135,7 @@ export function ObjectGraph({
       positionMap.set(tag.hash, {
         x: baseX,
         y: baseY,
-        hash: tag.name,
+        hash: tag.hash,
         type: 'tag',
         depth: 0
       })
@@ -298,6 +298,8 @@ export function ObjectGraph({
         ctx.fillStyle = isSelected ? '#3b82f6' : '#2563eb'
       } else if (pos.type === 'tree') {
         ctx.fillStyle = isSelected ? '#10b981' : '#059669'
+      } else if (pos.type === 'tag') {
+        ctx.fillStyle = isSelected ? '#8b5cf6' : '#7c3aed'
       } else {
         ctx.fillStyle = isSelected ? '#f59e0b' : '#d97706'
       }

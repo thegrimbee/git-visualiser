@@ -368,7 +368,7 @@ export function ObjectDetail({
             <span className="text-xs text-gray-400">Tag Name</span>
           </div>
           <code className="text-xs text-purple-400 bg-purple-400/10 px-2 py-1 rounded font-mono">
-            {tag.name}
+            {tag.hash}
           </code>
         </div>
 
