@@ -17,6 +17,7 @@ export interface GitState {
   repoName: string | null
   isRepoLoaded: boolean
   headPointer: string | null
+  isRefreshing: boolean
 }
 
 const initialState: GitState = {
@@ -29,7 +30,8 @@ const initialState: GitState = {
   repoPath: null,
   repoName: null,
   isRepoLoaded: false,
-  headPointer: null
+  headPointer: null,
+  isRefreshing: false
 }
 
 const gitSlice = createSlice({
@@ -43,6 +45,9 @@ const gitSlice = createSlice({
     },
     setHeadPointer: (state, action: PayloadAction<string | null>) => {
       state.headPointer = action.payload
+    },
+    setIsRefreshing: (state, action: PayloadAction<boolean>) => {
+      state.isRefreshing = action.payload
     },
     setObjects: (
       state,
@@ -95,7 +100,8 @@ export const {
   setRepository,
   closeRepository,
   setObjects,
-  setHeadPointer
+  setHeadPointer,
+  setIsRefreshing
 } = gitSlice.actions
 
 export default gitSlice.reducer

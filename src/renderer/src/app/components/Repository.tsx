@@ -4,8 +4,10 @@ import {
   setRepository,
   closeRepository,
   setObjects,
-  setHeadPointer
+  setHeadPointer,
+  setIsRefreshing
 } from '@renderer/app/store/slices/gitSlice'
+import { toast } from 'sonner'
 import {
   FolderOpen,
   HardDrive,
@@ -13,14 +15,50 @@ import {
   GitBranch,
   GitCommit,
   AlertCircle,
-  Loader2
+  Loader2,
+  RefreshCw,
+  Check
 } from 'lucide-react'
 
 export function Repository(): React.JSX.Element {
   const dispatch = useAppDispatch()
-  const { repoPath, repoName, isRepoLoaded, objects } = useAppSelector((state) => state.git)
+  const { repoPath, repoName, isRepoLoaded, objects, isRefreshing } = useAppSelector(
+    (state) => state.git
+  )
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+
+  const handleRefresh = async (): Promise<void> => {
+    if (!repoPath) return
+
+    setShowSuccess(false)
+    dispatch(setIsRefreshing(true))
+    const toastId = toast.loading('Refreshing repository...')
+
+    try {
+      // Re-fetch objects and head
+      const gitObjects = await window.api.getGitObjects(repoPath)
+      const head = await window.api.getGitHead(repoPath)
+
+      if (gitObjects) {
+        dispatch(setObjects(gitObjects))
+        dispatch(setHeadPointer(head))
+        toast.success('Repository refreshed', { id: toastId })
+        
+        // Show success state on the button
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 3000)
+      } else {
+        toast.error('Failed to read repository', { id: toastId })
+      }
+    } catch (error) {
+      console.error('Refresh error:', error)
+      toast.error('Error refreshing repository', { id: toastId })
+    } finally {
+      dispatch(setIsRefreshing(false))
+    }
+  }
 
   const handleSelectDirectory = async (): Promise<void> => {
     setError(null)
@@ -138,14 +176,40 @@ export function Repository(): React.JSX.Element {
           <p className="text-gray-500 text-sm mt-1 font-mono">{repoPath}</p>
         </div>
 
-        <button
-          onClick={handleSelectDirectory}
-          disabled={isLoading}
-          className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
-        >
-          <HardDrive className="w-4 h-4" />
-          Switch Repo
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded font-medium text-sm transition-all shadow-sm
+              ${
+                showSuccess
+                  ? 'bg-green-600 text-white border-transparent'
+                  : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-100'
+              }
+            `}
+          >
+            {isRefreshing ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : showSuccess ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            <span>
+              {isRefreshing ? 'Refreshing...' : showSuccess ? 'Repo Refreshed' : 'Refresh'}
+            </span>
+          </button>
+
+          <button
+            onClick={handleSelectDirectory}
+            disabled={isLoading}
+            className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
+          >
+            <HardDrive className="w-4 h-4" />
+            Switch Repo
+          </button>
+        </div>
 
         <div className="mt-6 pt-6 border-t border-gray-700 text-left"></div>
       </div>
