@@ -50,8 +50,7 @@ export interface BlobObject extends GitObject {
 
 export interface TagObject extends GitObject {
   type: 'tag'
-  object: string
-  hash: string
+  objectHash: string
 }
 
 
