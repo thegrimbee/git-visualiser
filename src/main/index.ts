@@ -110,6 +110,7 @@ function parseCommitContent(content: string): {
 // IPC Handler to load repository data
 ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
   const objectsPath = join(repoPath, '.git', 'objects')
+  const tagsPath = join(repoPath, '.git', 'refs', 'tags')
   if (!fs.existsSync(objectsPath)) {
     throw new Error('No .git/objects found')
   }
@@ -129,6 +130,25 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
   // 1. Scan for loose object files (folders 00-ff)
   // Note: This does not read packed objects (.git/objects/pack), wrapped in try-catch for safety
   try {
+    if (fs.existsSync(tagsPath)) {
+      const tagFiles = await fs.promises.readdir(tagsPath)
+      for (const file of tagFiles) {
+        const filePath = join(tagsPath, file)
+        try {
+          const content = await fs.promises.readFile(filePath, 'utf8')
+          const object = content.trim()
+          resultObjects.push({
+            hash: file,
+            type: 'tag',
+            size: 0,
+            references: [object],
+            referencedBy: []
+          })
+        } catch (err) {
+          console.warn(`Failed to read tag file ${file}`, err)
+        }
+      }
+    }
     const objectDirs = await fs.promises.readdir(objectsPath)
 
     for (const dir of objectDirs) {
