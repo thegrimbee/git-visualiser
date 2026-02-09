@@ -22,9 +22,13 @@ export function ObjectGraph({
 }: ObjectGraphProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [panOffset, setPanOffset] = useState({ x: 50, y: 50 }) // Start with some padding
-  const [isDragging, setIsDragging] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
+  const [draggedNodeHash, setDraggedNodeHash] = useState<string | null>(null)
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const [dragOverrides, setDragOverrides] = useState<Map<string, NodePosition>>(new Map())
+  // Track if we actually moved the mouse during a click (to prevent selecting when finishing a drag)
+  const hasMovedRef = useRef(false)
 
   // Constants for layout
   const NODE_RADIUS = 18
@@ -33,8 +37,8 @@ export function ObjectGraph({
   const COL_START_OBJECTS = 250
   const DEPTH_INDENT = 120 // How far right each subfolder moves
 
-  // 1. Calculate Layout (Memoized to avoid recalc on every render/pan)
-  const nodePositions = useMemo(() => {
+  // 1. Calculate Initial Layout
+  const defaultPositions = useMemo(() => {
     const positionMap = new Map<string, NodePosition>()
     const objectMap = new Map(objects.map((o) => [o.hash, o]))
 
@@ -117,6 +121,14 @@ export function ObjectGraph({
 
     return positionMap
   }, [objects])
+  const nodePositions = useMemo(() => {
+    const merged = new Map(defaultPositions)
+    dragOverrides.forEach((pos, hash) => {
+        merged.set(hash, pos)
+    })
+    return merged
+  }, [defaultPositions, dragOverrides])
+
   // Handle Resize
   useEffect(() => {
     if (!canvasRef.current?.parentElement) return
@@ -299,50 +311,95 @@ export function ObjectGraph({
 
   // 3. Interaction Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
-    setIsDragging(true)
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+
+    // Calculate mouse pos in World Space
+    const mouseX = e.clientX - rect.left - panOffset.x
+    const mouseY = e.clientY - rect.top - panOffset.y
+
     setLastMousePos({ x: e.clientX, y: e.clientY })
+    hasMovedRef.current = false
+
+    // Check collision with any node
+    let clickedNodeHash: string | null = null
+    for (const [hash, pos] of nodePositions.entries()) {
+      const dist = Math.sqrt(Math.pow(mouseX - pos.x, 2) + Math.pow(mouseY - pos.y, 2))
+      if (dist <= NODE_RADIUS) {
+        clickedNodeHash = hash
+        break
+      }
+    }
+
+    if (clickedNodeHash) {
+      setDraggedNodeHash(clickedNodeHash)
+    } else {
+      setIsPanning(true)
+    }
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
-    if (!isDragging) return
-
     const dx = e.clientX - lastMousePos.x
     const dy = e.clientY - lastMousePos.y
+    
+    // Track if strict click or drag occurred
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      hasMovedRef.current = true
+    }
 
-    setPanOffset((prev) => ({
-      x: prev.x + dx,
-      y: prev.y + dy
-    }))
+    if (draggedNodeHash) {
+      // Update the Drag Overrides state
+      // We take the CURRENT position (which might be default or already dragged) and add delta
+      setDragOverrides((prev) => {
+        const next = new Map(prev)
+        const currentPos = nodePositions.get(draggedNodeHash)
+        
+        if (currentPos) {
+          next.set(draggedNodeHash, {
+            ...currentPos,
+            x: currentPos.x + dx,
+            y: currentPos.y + dy
+          })
+        }
+        return next
+      })
+    } else if (isPanning) {
+      // Pan canvas
+      setPanOffset((prev) => ({
+        x: prev.x + dx,
+        y: prev.y + dy
+      }))
+    }
 
     setLastMousePos({ x: e.clientX, y: e.clientY })
   }
 
   const handleMouseUp = (): void => {
-    setIsDragging(false)
+    setIsPanning(false)
+    setDraggedNodeHash(null)
   }
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>): void => {
-    if (isDragging) return // Prevent click after drag
-
-    // Calculate click in "World Space"
+    // If we dragged (either panned widely or moved a node), don't trigger select
+    if (hasMovedRef.current) return 
+    
+    // ...existing code for hit testing (finding foundHash)...
+    // Copy the existing hit logic here
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-
     const clickX = e.clientX - rect.left - panOffset.x
     const clickY = e.clientY - rect.top - panOffset.y
 
-    // Find intersected text
-    // Simple heuristic: distance < radius
     let foundHash: string | undefined
-
     for (const [hash, pos] of nodePositions.entries()) {
-      const dx = clickX - pos.x
-      const dy = clickY - pos.y
-      if (Math.sqrt(dx * dx + dy * dy) <= NODE_RADIUS) {
-        foundHash = hash
-        break
-      }
+        const dx = clickX - pos.x
+        const dy = clickY - pos.y
+        if (Math.sqrt(dx * dx + dy * dy) <= NODE_RADIUS) {
+            foundHash = hash
+            break
+        }
     }
 
     if (foundHash) {
@@ -360,7 +417,7 @@ export function ObjectGraph({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         className="w-full h-full block"
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        style={{ cursor: draggedNodeHash ? 'grabbing' : isPanning ? 'move' : 'default' }}
       />
 
       {/* Legend overlay */}
