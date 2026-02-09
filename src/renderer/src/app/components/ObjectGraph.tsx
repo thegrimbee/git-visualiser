@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useMemo, JSX } from 'react'
-import type { GitObject, CommitObject, TreeObject } from './ObjectDatabase'
+import type { GitObject, CommitObject, TreeObject, TagObject } from './ObjectDatabase'
 
 interface ObjectGraphProps {
-  objects: Array<GitObject | CommitObject | TreeObject>
+  objects: Array<GitObject | CommitObject | TreeObject | TagObject>
   selectedHash?: string
   onSelectObject: (hash: string) => void
 }
@@ -11,7 +11,7 @@ interface NodePosition {
   x: number
   y: number
   hash: string
-  type: 'commit' | 'tree' | 'blob'
+  type: 'commit' | 'tree' | 'blob' | 'tag'
   depth: number
 }
 
@@ -67,7 +67,7 @@ export function ObjectGraph({
       if (!depthMap.has(hash)) {
         depthMap.set(hash, depth)
       }
-
+      
       const obj = objectMap.get(hash)
       if (obj && obj.type === 'tree') {
         ;(obj as TreeObject).entries.forEach((entry) => {
@@ -116,6 +116,28 @@ export function ObjectGraph({
         hash: blob.hash,
         type: 'blob',
         depth
+      })
+    })
+
+    // 4. Tags (Place near their referenced object)
+    const tags = objects.filter((o) => o.type === 'tag') as TagObject[]
+    tags.forEach((tag, index) => {
+      const targetObj = objectMap.get(tag.object)
+      let baseX = COL_START_OBJECTS
+      let baseY = index * ROW_HEIGHT
+      if (targetObj) {
+        const targetPos = positionMap.get(targetObj.hash)
+        if (targetPos) {
+          baseX = targetPos.x
+          baseY = targetPos.y + 30 + index * 20 // Slightly below the target object
+        }
+      }
+      positionMap.set(tag.hash, {
+        x: baseX,
+        y: baseY,
+        hash: tag.name,
+        type: 'tag',
+        depth: 0
       })
     })
 

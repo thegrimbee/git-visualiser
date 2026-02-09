@@ -48,6 +48,13 @@ export interface BlobObject extends GitObject {
   content: string
 }
 
+export interface TagObject extends GitObject {
+  type: 'tag'
+  object: string
+  name: string
+}
+
+
 export function ObjectDatabase(): JSX.Element {
   const dispatch = useAppDispatch()
   const selectedObject = useAppSelector((state) => state.git.selectedObject)

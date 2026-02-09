@@ -8,12 +8,12 @@ import {
   Hash,
   Link
 } from 'lucide-react'
-import type { GitObject, CommitObject, TreeObject, BlobObject } from './ObjectDatabase'
+import type { GitObject, CommitObject, TreeObject, BlobObject, TagObject } from './ObjectDatabase'
 import { JSX } from 'react'
 
 interface ObjectDetailProps {
-  object: GitObject | CommitObject | TreeObject | BlobObject
-  allObjects: Array<GitObject | CommitObject | TreeObject | BlobObject>
+  object: GitObject | CommitObject | TreeObject | BlobObject | TagObject
+  allObjects: Array<GitObject | CommitObject | TreeObject | BlobObject | TagObject>
   onSelectObject: (hash: string) => void
 }
 
@@ -24,7 +24,7 @@ export function ObjectDetail({
 }: ObjectDetailProps): JSX.Element {
   const getObjectByHash = (
     hash: string
-  ): GitObject | CommitObject | TreeObject | BlobObject | undefined => {
+  ): GitObject | CommitObject | TreeObject | BlobObject | TagObject | undefined => {
     return allObjects.find((o) => o.hash === hash)
   }
 
@@ -348,11 +348,56 @@ export function ObjectDetail({
     )
   }
 
+  const renderTagDetail = (tag: TagObject): JSX.Element => {
+    return (
+      <div className="space-y-4">
+        <div className="bg-purple-500/5 border border-purple-500/20 rounded p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Link className="w-5 h-5 text-purple-400" />
+            <h3 className="text-sm font-semibold text-gray-200">Tag Object</h3>
+          </div>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            A tag is a reference to a specific commit, often used to mark release points (e.g.,
+            v1.0, v2.0).
+          </p>
+        </div>
+        
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Hash className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-400">Tag Name</span>
+          </div>
+          <code className="text-xs text-purple-400 bg-purple-400/10 px-2 py-1 rounded font-mono">
+            {tag.name}
+          </code>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Link className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-400">Points To</span>
+          </div>
+          <button
+            onClick={() => onSelectObject(tag.object)}
+            className="flex items-center gap-2 p-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded transition-colors w-full"
+          >
+            <GitCommit className="w-3 h-3 text-purple-400" />
+            <code className="text-xs text-purple-400 font-mono flex-1 text-left">
+              {tag.object}
+            </code>
+            <ArrowRight className="w-3 h-3 text-purple-400" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6">
       {object.type === 'commit' && renderCommitDetail(object as CommitObject)}
       {object.type === 'tree' && renderTreeDetail(object as TreeObject)}
       {object.type === 'blob' && renderBlobDetail(object as BlobObject)}
+      {object.type === 'tag' && renderTagDetail(object as TagObject)}
     </div>
   )
 }
