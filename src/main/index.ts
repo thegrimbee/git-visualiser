@@ -121,6 +121,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     size: number
     references?: string[]
     referencedBy: string[]
+    object?: string
     content?: string
     entries?: { mode: string; name: string; hash: string; type: string }[]
     tree?: string
@@ -142,7 +143,8 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
             type: 'tag',
             size: 0,
             references: [object],
-            referencedBy: []
+            referencedBy: [],
+            object: object
           })
         } catch (err) {
           console.warn(`Failed to read tag file ${file}`, err)
@@ -152,7 +154,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     const objectDirs = await fs.promises.readdir(objectsPath)
 
     for (const dir of objectDirs) {
-      if (dir.length !== 2 || dir === 'in' || dir === 'pa') continue // skip info/pack folders
+      if (dir.length !== 2 || dir === 'in' || dir === 'pa') continue // skip info/pack folders TODO: read packed objects later
 
       const dirPath = join(objectsPath, dir)
       const files = await fs.promises.readdir(dirPath)
