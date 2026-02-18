@@ -119,6 +119,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     hash: string
     type: string
     size: number
+    objectHash?: string
     references?: string[]
     referencedBy: string[]
     object?: string
@@ -142,9 +143,9 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
             hash: file,
             type: 'tag',
             size: 0,
+            objectHash: object,
             references: [object],
-            referencedBy: [],
-            object: object
+            referencedBy: []
           })
         } catch (err) {
           console.warn(`Failed to read tag file ${file}`, err)

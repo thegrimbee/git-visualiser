@@ -131,8 +131,8 @@ export function ObjectGraph({
     // 4. Tags (Place near their referenced object)
     const tags = objects.filter((o) => o.type === 'tag') as TagObject[]
     tags.forEach((tag, index) => {
-      const targetObj = objectMap.get(tag.object)
-      let baseX = COL_WIDTH_TAG
+      const targetObj = objectMap.get(tag.objectHash)
+      let baseX = COL_START_OBJECTS
       let baseY = index * ROW_HEIGHT
 
       // If pointing to a commit, place to the left of it
@@ -186,7 +186,7 @@ export function ObjectGraph({
 
       if (obj.type === 'tag') {
         const tag = obj as TagObject
-        children.push(tag.object)
+        children.push(tag.objectHash)
       } else if (obj.type === 'commit') {
         const commit = obj as CommitObject
         children.push(commit.tree)
@@ -325,7 +325,7 @@ export function ObjectGraph({
       .forEach((tagObj) => {
         const tag = tagObj as TagObject
         const fromPos = nodePositions.get(tag.hash)
-        const toPos = nodePositions.get(tag.object)
+        const toPos = nodePositions.get(tag.objectHash)
 
         if (fromPos && toPos) {
           const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
