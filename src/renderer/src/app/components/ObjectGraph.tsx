@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useMemo, JSX } from 'react'
+import { useEffect, useRef, useState, useMemo} from 'react'
+import type { JSX } from 'react'
 import type { GitObject, CommitObject, TreeObject, TagObject } from './ObjectDatabase'
 
 interface ObjectGraphProps {
@@ -31,12 +32,17 @@ export function ObjectGraph({
   const hasMovedRef = useRef(false)
 
   // Constants for layout
-  const NODE_RADIUS = 18
-  const ROW_HEIGHT = 60 // Fixed height per node -> ensures spacing
+  const NODE_RADIUS = 20
+  const ROW_HEIGHT = 70 // Fixed height per node -> ensures spacing
   const COL_WIDTH_TAG = 50 // New column for tags
   const COL_WIDTH_COMMIT = 150 // Shifted right to make room for tags
   const COL_START_OBJECTS = 300 // Shifted right
   const DEPTH_INDENT = 120 // How far right each subfolder moves
+  const NODE_TO_LABELS_GAP = 30 // Vertical gap between node and its label
+  const COL_LABEL_SCALE = 0.7 // Scale for column header font size relative to node radius
+  const LINE_WIDTH = 1.5 // Base line width for connections
+  const ICON_SCALE = 0.7 // Scale for Lucide icons (1 = 24px, adjust if you want smaller/larger icons)
+  const NODE_LABEL_SCALE = 0.6 // Scale for node labels relative to node radius
 
   // Icon Paths (SVG Data from Lucide)
   const ICON_PATHS = useMemo(() => ({
@@ -91,7 +97,7 @@ export function ObjectGraph({
     commits.forEach((commit, index) => {
       positionMap.set(commit.hash, {
         x: COL_WIDTH_COMMIT,
-        y: index * ROW_HEIGHT,
+        y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: commit.hash,
         type: 'commit',
         depth: -1
@@ -104,7 +110,7 @@ export function ObjectGraph({
       const depth = depthMap.get(tree.hash) ?? 0 // Default to 0 if orphan
       positionMap.set(tree.hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: index * ROW_HEIGHT,
+        y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: tree.hash,
         type: 'tree',
         depth
@@ -121,7 +127,7 @@ export function ObjectGraph({
 
       positionMap.set(blob.hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: startY + index * ROW_HEIGHT,
+        y: startY + index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: blob.hash,
         type: 'blob',
         depth
@@ -133,7 +139,7 @@ export function ObjectGraph({
     tags.forEach((tag, index) => {
       const targetObj = objectMap.get(tag.objectHash)
       let baseX = COL_START_OBJECTS
-      let baseY = index * ROW_HEIGHT
+      let baseY = index * ROW_HEIGHT + NODE_TO_LABELS_GAP
 
       // If pointing to a commit, place to the left of it
       if (targetObj) {
@@ -176,8 +182,9 @@ export function ObjectGraph({
     const queue = [selectedHash]
     set.add(selectedHash)
 
-    while (queue.length > 0) {
-      const currentHash = queue.shift()!
+    let index = 0
+    while (index < queue.length) {
+      const currentHash = queue[index++]
       const obj = objectMap.get(currentHash)
 
       if (!obj) continue
@@ -260,7 +267,7 @@ export function ObjectGraph({
     ctx.translate(panOffset.x, panOffset.y)
 
     // --- Draw Connections First (so they are behind nodes) ---
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = LINE_WIDTH
 
     // Helper to draw bezier curve
     const drawConnection = (
@@ -294,8 +301,8 @@ export function ObjectGraph({
         if (fromPos && toPos) {
           const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
           drawConnection(
-            { x: fromPos.x + NODE_RADIUS, y: fromPos.y },
-            { x: toPos.x - NODE_RADIUS, y: toPos.y },
+            { x: fromPos.x, y: fromPos.y },
+            { x: toPos.x, y: toPos.y },
             'rgba(100, 100, 100, 0.4)',
             isHighlighted
           )
@@ -312,8 +319,8 @@ export function ObjectGraph({
             ctx.lineWidth = isHighlighted ? 3 : 1.5
 
             ctx.beginPath()
-            ctx.moveTo(fromPos.x, fromPos.y - NODE_RADIUS)
-            ctx.lineTo(parentPos.x, parentPos.y + NODE_RADIUS)
+            ctx.moveTo(fromPos.x, fromPos.y)
+            ctx.lineTo(parentPos.x, parentPos.y)
             ctx.stroke()
           }
         })
@@ -331,8 +338,8 @@ export function ObjectGraph({
           const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
           // Draw connection from Tag to Commit/Object
           drawConnection(
-            { x: fromPos.x + NODE_RADIUS, y: fromPos.y },
-            { x: toPos.x - NODE_RADIUS, y: toPos.y },
+            { x: fromPos.x, y: fromPos.y },
+            { x: toPos.x, y: toPos.y },
             'rgba(167, 139, 250, 0.5)', // purple tint
             isHighlighted
           )
@@ -352,8 +359,8 @@ export function ObjectGraph({
             if (toPos) {
               const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
               drawConnection(
-                { x: fromPos.x + NODE_RADIUS, y: fromPos.y },
-                { x: toPos.x - NODE_RADIUS, y: toPos.y },
+                { x: fromPos.x, y: fromPos.y },
+                { x: toPos.x, y: toPos.y },
                 'rgba(100, 100, 100, 0.25)',
                 isHighlighted
               )
@@ -398,7 +405,7 @@ export function ObjectGraph({
       }
       // Node Label (Short Hash)
       ctx.fillStyle = '#9ca3af'
-      ctx.font = '10px monospace'
+      ctx.font = `${NODE_RADIUS * NODE_LABEL_SCALE}px monospace`
       ctx.textAlign = 'center'
       ctx.fillText(pos.hash.substring(0, 6), pos.x, pos.y + NODE_RADIUS + 14)
       // --- Draw Icon ---
@@ -408,7 +415,7 @@ export function ObjectGraph({
       // Reference size for Lucide icons is 24x24.
       // We want to center it, so we shift back by 12.
       // We can also scale it down slightly if needed (e.g. 0.8x for 19px icon)
-      const scale = 1
+      const scale = ICON_SCALE * (NODE_RADIUS * 2) / 24 // Scale to fit node size
       ctx.scale(scale, scale)
       ctx.translate(-12, -12) 
 
@@ -436,7 +443,7 @@ export function ObjectGraph({
     // Draw Column Headers (Fixed relative to pan x, but moves with pan y? Or fully fixed?)
     // Let's make them move with the graph so they identify the columns
     ctx.fillStyle = '#9ca3af'
-    ctx.font = '12px sans-serif'
+    ctx.font = `${NODE_RADIUS * COL_LABEL_SCALE}px sans-serif`
     ctx.textAlign = 'center'
     ctx.fillText('TAGS', COL_WIDTH_TAG, -20)
     ctx.fillText('COMMITS', COL_WIDTH_COMMIT, -20)
@@ -444,7 +451,7 @@ export function ObjectGraph({
     ctx.fillText('SUB TREES / FILES', COL_START_OBJECTS + DEPTH_INDENT * 1.5, -20)
 
     ctx.restore()
-  }, [objects, selectedHash, panOffset, nodePositions, containerSize])
+  }, [objects, selectedHash, panOffset, nodePositions, containerSize, relatedHashes, ICON_PATHS])
 
   // 3. Interaction Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
