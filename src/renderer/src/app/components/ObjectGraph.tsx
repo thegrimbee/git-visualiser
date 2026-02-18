@@ -31,7 +31,7 @@ export function ObjectGraph({
   const hasMovedRef = useRef(false)
 
   // Constants for layout
-   const NODE_RADIUS = 18
+  const NODE_RADIUS = 18
   const ROW_HEIGHT = 60 // Fixed height per node -> ensures spacing
   const COL_WIDTH_TAG = 50 // New column for tags
   const COL_WIDTH_COMMIT = 150 // Shifted right to make room for tags
