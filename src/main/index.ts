@@ -122,6 +122,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     objectHash?: string
     references?: string[]
     referencedBy: string[]
+    object?: string
     content?: string
     entries?: { mode: string; name: string; hash: string; type: string }[]
     tree?: string
@@ -154,7 +155,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     const objectDirs = await fs.promises.readdir(objectsPath)
 
     for (const dir of objectDirs) {
-      if (dir.length !== 2 || dir === 'in' || dir === 'pa') continue // skip info/pack folders
+      if (dir.length !== 2 || dir === 'in' || dir === 'pa') continue // skip info/pack folders TODO: read packed objects later
 
       const dirPath = join(objectsPath, dir)
       const files = await fs.promises.readdir(dirPath)

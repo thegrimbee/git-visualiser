@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useMemo, JSX } from 'react'
+import { useEffect, useRef, useState, useMemo} from 'react'
+import type { JSX } from 'react'
 import type { GitObject, CommitObject, TreeObject, TagObject } from './ObjectDatabase'
 
 interface ObjectGraphProps {
@@ -31,11 +32,25 @@ export function ObjectGraph({
   const hasMovedRef = useRef(false)
 
   // Constants for layout
-  const NODE_RADIUS = 18
-  const ROW_HEIGHT = 60 // Fixed height per node -> ensures spacing
-  const COL_WIDTH_COMMIT = 100
-  const COL_START_OBJECTS = 250
+  const NODE_RADIUS = 20
+  const ROW_HEIGHT = 70 // Fixed height per node -> ensures spacing
+  const COL_WIDTH_TAG = 50 // New column for tags
+  const COL_WIDTH_COMMIT = 150 // Shifted right to make room for tags
+  const COL_START_OBJECTS = 300 // Shifted right
   const DEPTH_INDENT = 120 // How far right each subfolder moves
+  const NODE_TO_LABELS_GAP = 30 // Vertical gap between node and its label
+  const COL_LABEL_SCALE = 0.7 // Scale for column header font size relative to node radius
+  const LINE_WIDTH = 1.5 // Base line width for connections
+  const ICON_SCALE = 0.7 // Scale for Lucide icons (1 = 24px, adjust if you want smaller/larger icons)
+  const NODE_LABEL_SCALE = 0.6 // Scale for node labels relative to node radius
+
+  // Icon Paths (SVG Data from Lucide)
+  const ICON_PATHS = useMemo(() => ({
+    commit: new Path2D("M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M3 12h6 M15 12h6"),
+    tree: new Path2D("M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2Z"),
+    blob: new Path2D("M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8"),
+    tag: new Path2D("M12 2l8 8-8 8-8-8 8-8z") // Simple diamond/tag shape placeholder if needed, or rely on color
+  }), [])
 
   // 1. Calculate Initial Layout
   const defaultPositions = useMemo(() => {
@@ -82,7 +97,7 @@ export function ObjectGraph({
     commits.forEach((commit, index) => {
       positionMap.set(commit.hash, {
         x: COL_WIDTH_COMMIT,
-        y: index * ROW_HEIGHT,
+        y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: commit.hash,
         type: 'commit',
         depth: -1
@@ -95,7 +110,7 @@ export function ObjectGraph({
       const depth = depthMap.get(tree.hash) ?? 0 // Default to 0 if orphan
       positionMap.set(tree.hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: index * ROW_HEIGHT,
+        y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: tree.hash,
         type: 'tree',
         depth
@@ -112,7 +127,7 @@ export function ObjectGraph({
 
       positionMap.set(blob.hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: startY + index * ROW_HEIGHT,
+        y: startY + index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: blob.hash,
         type: 'blob',
         depth
@@ -124,14 +139,20 @@ export function ObjectGraph({
     tags.forEach((tag, index) => {
       const targetObj = objectMap.get(tag.objectHash)
       let baseX = COL_START_OBJECTS
-      let baseY = index * ROW_HEIGHT
+      let baseY = index * ROW_HEIGHT + NODE_TO_LABELS_GAP
+
+      // If pointing to a commit, place to the left of it
       if (targetObj) {
         const targetPos = positionMap.get(targetObj.hash)
         if (targetPos) {
-          baseX = targetPos.x
-          baseY = targetPos.y + 30 + index * 20 // Slightly below the target object
+          // Align Y with target, place X to the left
+          baseY = targetPos.y
+          // If multiple tags point to same object, we might overlap. 
+          // For simplicity, let's just place it at fixed offset left.
+          baseX = targetPos.x - 80 
         }
       }
+      
       positionMap.set(tag.hash, {
         x: baseX,
         y: baseY,
@@ -150,6 +171,49 @@ export function ObjectGraph({
     })
     return merged
   }, [defaultPositions, dragOverrides])
+
+  const relatedHashes = useMemo(() => {
+    const set = new Set<string>()
+    if (!selectedHash) return set
+
+    // Simple BFS/DFS to find all descendants
+    // We treat Git objects as directed: Tag -> Commit -> Tree -> [Tree | Blob]
+    const objectMap = new Map(objects.map((o) => [o.hash, o]))
+    const queue = [selectedHash]
+    set.add(selectedHash)
+
+    let index = 0
+    while (index < queue.length) {
+      const currentHash = queue[index++]
+      const obj = objectMap.get(currentHash)
+
+      if (!obj) continue
+
+      let children: string[] = []
+
+      if (obj.type === 'tag') {
+        const tag = obj as TagObject
+        children.push(tag.objectHash)
+      } else if (obj.type === 'commit') {
+        const commit = obj as CommitObject
+        children.push(commit.tree)
+        // Optionally include parents if we want "history" highlighting? 
+        // User asked for "connected nodes" usually implying the content snapshot. 
+        // Let's stick to the content tree for now.
+      } else if (obj.type === 'tree') {
+        const tree = obj as TreeObject
+        children = tree.entries.map((e) => e.hash)
+      }
+
+      for (const child of children) {
+        if (!set.has(child)) {
+          set.add(child)
+          queue.push(child)
+        }
+      }
+    }
+    return set
+  }, [selectedHash, objects])
 
   // Handle Resize
   useEffect(() => {
@@ -203,7 +267,7 @@ export function ObjectGraph({
     ctx.translate(panOffset.x, panOffset.y)
 
     // --- Draw Connections First (so they are behind nodes) ---
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = LINE_WIDTH
 
     // Helper to draw bezier curve
     const drawConnection = (
@@ -235,10 +299,10 @@ export function ObjectGraph({
         const toPos = nodePositions.get(commit.tree)
 
         if (fromPos && toPos) {
-          const isHighlighted = fromPos.hash === selectedHash || toPos.hash === selectedHash
+          const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
           drawConnection(
-            { x: fromPos.x + NODE_RADIUS, y: fromPos.y },
-            { x: toPos.x - NODE_RADIUS, y: toPos.y },
+            { x: fromPos.x, y: fromPos.y },
+            { x: toPos.x, y: toPos.y },
             'rgba(100, 100, 100, 0.4)',
             isHighlighted
           )
@@ -255,11 +319,31 @@ export function ObjectGraph({
             ctx.lineWidth = isHighlighted ? 3 : 1.5
 
             ctx.beginPath()
-            ctx.moveTo(fromPos.x, fromPos.y - NODE_RADIUS)
-            ctx.lineTo(parentPos.x, parentPos.y + NODE_RADIUS)
+            ctx.moveTo(fromPos.x, fromPos.y)
+            ctx.lineTo(parentPos.x, parentPos.y)
             ctx.stroke()
           }
         })
+      })
+    
+    // Tag -> Target Object
+    objects
+      .filter((o) => o.type === 'tag')
+      .forEach((tagObj) => {
+        const tag = tagObj as TagObject
+        const fromPos = nodePositions.get(tag.hash)
+        const toPos = nodePositions.get(tag.objectHash)
+
+        if (fromPos && toPos) {
+          const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
+          // Draw connection from Tag to Commit/Object
+          drawConnection(
+            { x: fromPos.x, y: fromPos.y },
+            { x: toPos.x, y: toPos.y },
+            'rgba(167, 139, 250, 0.5)', // purple tint
+            isHighlighted
+          )
+        }
       })
 
     // Tree -> Entry (Tree or Blob)
@@ -273,10 +357,10 @@ export function ObjectGraph({
           tree.entries.forEach((entry) => {
             const toPos = nodePositions.get(entry.hash)
             if (toPos) {
-              const isHighlighted = fromPos.hash === selectedHash || toPos.hash === selectedHash
+              const isHighlighted = (relatedHashes.has(fromPos.hash) && relatedHashes.has(toPos.hash))
               drawConnection(
-                { x: fromPos.x + NODE_RADIUS, y: fromPos.y },
-                { x: toPos.x - NODE_RADIUS, y: toPos.y },
+                { x: fromPos.x, y: fromPos.y },
+                { x: toPos.x, y: toPos.y },
                 'rgba(100, 100, 100, 0.25)',
                 isHighlighted
               )
@@ -289,20 +373,29 @@ export function ObjectGraph({
 
     // --- Draw Nodes ---
     nodePositions.forEach((pos) => {
+      // Find the specific color for this node type
+      let typeColor = '#a16207' // default yellow
+      
+      if (pos.type === 'commit') {
+        typeColor = '#60a5fa' // blue-400
+      } else if (pos.type === 'tree') {
+        typeColor = '#4ade80' // green-400
+      } else if (pos.type === 'tag') {
+        typeColor = '#a78bfa' // purple-400
+      } else {
+        typeColor = '#facc15' // yellow-400
+      }
+
       const isSelected = pos.hash === selectedHash
 
       ctx.beginPath()
       ctx.arc(pos.x, pos.y, NODE_RADIUS, 0, Math.PI * 2)
 
-      if (pos.type === 'commit') {
-        ctx.fillStyle = isSelected ? '#3b82f6' : '#2563eb'
-      } else if (pos.type === 'tree') {
-        ctx.fillStyle = isSelected ? '#10b981' : '#059669'
-      } else if (pos.type === 'tag') {
-        ctx.fillStyle = isSelected ? '#8b5cf6' : '#7c3aed'
-      } else {
-        ctx.fillStyle = isSelected ? '#f59e0b' : '#d97706'
-      }
+      // Make background transparent (or very dark gray for hit area visibility)
+      ctx.fillStyle = isSelected ? 'rgb(50, 50, 50)' : 'rgb(30, 30, 30)' 
+      // Use the type color for the ring if selected, otherwise a subtle grey
+      ctx.strokeStyle = isSelected ? '#ffffff' : '#4b5563' 
+      
       ctx.fill()
 
       if (isSelected) {
@@ -310,28 +403,55 @@ export function ObjectGraph({
         ctx.lineWidth = 2
         ctx.stroke()
       }
-
       // Node Label (Short Hash)
-      ctx.fillStyle = '#fff'
-      ctx.font = '10px monospace'
+      ctx.fillStyle = '#9ca3af'
+      ctx.font = `${NODE_RADIUS * NODE_LABEL_SCALE}px monospace`
       ctx.textAlign = 'center'
       ctx.fillText(pos.hash.substring(0, 6), pos.x, pos.y + NODE_RADIUS + 14)
+      // --- Draw Icon ---
+      ctx.save()
+      // Move to center of node
+      ctx.translate(pos.x, pos.y)
+      // Reference size for Lucide icons is 24x24.
+      // We want to center it, so we shift back by 12.
+      // We can also scale it down slightly if needed (e.g. 0.8x for 19px icon)
+      const scale = ICON_SCALE * (NODE_RADIUS * 2) / 24 // Scale to fit node size
+      ctx.scale(scale, scale)
+      ctx.translate(-12, -12) 
+
+      ctx.lineWidth = 2
+      // Icon color (light/white for contrast)
+      ctx.strokeStyle = typeColor
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+
+      if (pos.type === 'commit') {
+        ctx.stroke(ICON_PATHS.commit)
+      } else if (pos.type === 'tree') {
+        ctx.stroke(ICON_PATHS.tree)
+      } else if (pos.type === 'tag') {
+        ctx.stroke(ICON_PATHS.blob)
+      } else {
+        ctx.stroke(ICON_PATHS.blob)
+      }
 
       // Optional: Show filename if available?
       // (This requires passing filename data which isn't easy in this raw object view, so skipping for now)
+      ctx.restore()
     })
 
     // Draw Column Headers (Fixed relative to pan x, but moves with pan y? Or fully fixed?)
     // Let's make them move with the graph so they identify the columns
     ctx.fillStyle = '#9ca3af'
-    ctx.font = '12px sans-serif'
+    ctx.font = `${NODE_RADIUS * COL_LABEL_SCALE}px sans-serif`
     ctx.textAlign = 'center'
+    ctx.fillText('TAGS', COL_WIDTH_TAG, -20)
     ctx.fillText('COMMITS', COL_WIDTH_COMMIT, -20)
     ctx.fillText('ROOT TREES', COL_START_OBJECTS, -20)
     ctx.fillText('SUB TREES / FILES', COL_START_OBJECTS + DEPTH_INDENT * 1.5, -20)
 
     ctx.restore()
-  }, [objects, selectedHash, panOffset, nodePositions, containerSize])
+  }, [objects, selectedHash, panOffset, nodePositions, containerSize, relatedHashes, ICON_PATHS])
 
   // 3. Interaction Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
