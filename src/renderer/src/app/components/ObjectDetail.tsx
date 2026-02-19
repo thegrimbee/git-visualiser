@@ -9,7 +9,7 @@ import {
   Link
 } from 'lucide-react'
 import type { GitObject, CommitObject, TreeObject, BlobObject, TagObject } from './ObjectDatabase'
-import { JSX } from 'react'
+import type { JSX } from 'react'
 
 interface ObjectDetailProps {
   object: GitObject | CommitObject | TreeObject | BlobObject | TagObject
@@ -30,7 +30,7 @@ export function ObjectDetail({
 
   const renderCommitDetail = (commit: CommitObject): JSX.Element => {
     const parentObjs = commit.parent?.map((p) => getObjectByHash(p)).filter(Boolean) || []
-
+    // TODO: Move each object type rendering to separate components for better organization
     return (
       <div className="space-y-4">
         <div className="bg-blue-500/5 border border-blue-500/20 rounded p-4">
@@ -153,6 +153,16 @@ export function ObjectDetail({
           <code className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded font-mono">
             {tree.hash}
           </code>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <FolderTree className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-400">Folder Name{tree.names.length > 1 ? `s (${tree.names.length})` : ''}</span>
+          </div>
+          <p className="text-sm text-gray-200 font-medium">
+            {tree.names.length > 0 ? tree.names.slice(0, 5).join(', ') : <span className="text-gray-500 italic">No name associated</span>}
+          </p>
         </div>
 
         <div>
@@ -283,6 +293,16 @@ export function ObjectDetail({
           <code className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded font-mono">
             {blob.hash}
           </code>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-400">File Name{blob.names.length > 1 ? `s (${blob.names.length})` : ''}</span>
+          </div>
+          <p className="text-sm text-gray-200 font-medium">
+            {blob.names.length > 0 ? blob.names.slice(0, 5).join(', ') : <span className="text-gray-500 italic">No name associated</span>}
+          </p>
         </div>
 
         <div>

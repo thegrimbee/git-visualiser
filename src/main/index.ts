@@ -111,6 +111,7 @@ function parseCommitContent(content: string): {
 ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
   const objectsPath = join(repoPath, '.git', 'objects')
   const tagsPath = join(repoPath, '.git', 'refs', 'tags')
+  const rootFolderName = repoPath.split(/[\\/]/).pop() || 'repository'
   if (!fs.existsSync(objectsPath)) {
     throw new Error('No .git/objects found')
   }
@@ -119,6 +120,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     hash: string
     type: string
     size: number
+    names?: string[]
     objectHash?: string
     references?: string[]
     referencedBy: string[]
@@ -131,7 +133,9 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
 
   // 1. Scan for loose object files (folders 00-ff)
   // Note: This does not read packed objects (.git/objects/pack), wrapped in try-catch for safety
+  // TODO: In the future, implement reading from packfiles for a complete view of the repository objects
   try {
+    // Read tags
     if (fs.existsSync(tagsPath)) {
       const tagFiles = await fs.promises.readdir(tagsPath)
       for (const file of tagFiles) {
@@ -152,6 +156,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
         }
       }
     }
+    // Read objects
     const objectDirs = await fs.promises.readdir(objectsPath)
 
     for (const dir of objectDirs) {
@@ -175,6 +180,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
           const size = parseInt(sizeStr)
           const contentBuffer = inflated.subarray(nullIndex + 1)
           let parsedContent: {
+            names?: string[]
             content?: string
             entries?: { mode: string; name: string; hash: string; type: string }[]
             tree?: string
@@ -185,11 +191,15 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
           if (type === 'blob') {
             // Start of file logic, limit size for UI performance
             parsedContent = {
+              names: [],
               content: size < 10000 ? contentBuffer.toString('utf8') : '(Binary or too large)'
             }
           } else if (type === 'tree') {
             const entries = parseTreeBuffer(contentBuffer)
-            parsedContent = { entries }
+            parsedContent = { 
+              names: [],
+              entries: entries 
+            }
             references = entries.map((e) => e.hash)
           } else if (type === 'commit') {
             parsedContent = parseCommitContent(contentBuffer.toString('utf8'))
@@ -215,6 +225,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     const hashToObjMap = new Map(resultObjects.map((o) => [o.hash, o]))
 
     resultObjects.forEach((obj) => {
+      // Handle references for backlinks
       if (obj.references && obj.references.length > 0) {
         obj.references.forEach((refHash) => {
           const target = hashToObjMap.get(refHash)
@@ -222,6 +233,28 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
             target.referencedBy.push(obj.hash)
           }
         })
+      }
+
+      // Populate blob names from tree entries
+      if (obj.type === 'tree' && obj.entries) {
+        obj.entries.forEach((entry) => {
+          if (entry.type === 'blob' || entry.type === 'tree') {
+            const targetObj = hashToObjMap.get(entry.hash)
+            if (targetObj && targetObj.names) {
+              // Avoid duplicates if multiple trees point to the same blob with the same name
+              if (!targetObj.names.includes(entry.name)) {
+                targetObj.names.push(entry.name)
+              }
+            }
+          }
+        })
+      }
+    })
+
+    resultObjects.forEach((obj) => {
+      // If tree has no names, means it is root tree, so we assign the root folder name
+      if (obj.type === 'tree' && obj.names && obj.names.length === 0) {
+        obj.names.push(rootFolderName)
       }
     })
     console.log(resultObjects)
