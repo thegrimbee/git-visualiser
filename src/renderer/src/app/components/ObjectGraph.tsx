@@ -44,7 +44,7 @@ export function ObjectGraph({
   const LINE_WIDTH = 1.5 // Base line width for connections
   const ICON_SCALE = 0.7 // Scale for Lucide icons (1 = 24px, adjust if you want smaller/larger icons)
   const NODE_LABEL_SCALE = 0.6 // Scale for node labels relative to node radius
-  const MAX_LABEL_LENGTH = 12 // Max characters for node labels before truncation
+  const MAX_LABEL_LENGTH = 20 // Max characters for node labels before truncation
 
   // Icon Paths (SVG Data from Lucide)
   const ICON_PATHS = useMemo(() => ({
@@ -101,7 +101,7 @@ export function ObjectGraph({
         x: COL_WIDTH_COMMIT,
         y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: commit.hash,
-        label: commit.hash.substring(0, 6),
+        label: commit.message,
         type: 'commit',
         depth: -1
       })
