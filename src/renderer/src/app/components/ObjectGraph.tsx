@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useMemo} from 'react'
 import type { JSX } from 'react'
-import type { GitObject, CommitObject, TreeObject, TagObject } from './ObjectDatabase'
+import type { GitObject, CommitObject, BlobObject, TreeObject, TagObject } from './ObjectDatabase'
 
 interface ObjectGraphProps {
-  objects: Array<GitObject | CommitObject | TreeObject | TagObject>
+  objects: Array<GitObject | CommitObject | BlobObject | TreeObject | TagObject>
   selectedHash?: string
   onSelectObject: (hash: string) => void
 }
@@ -12,6 +12,7 @@ interface NodePosition {
   x: number
   y: number
   hash: string
+  label: string
   type: 'commit' | 'tree' | 'blob' | 'tag'
   depth: number
 }
@@ -43,6 +44,7 @@ export function ObjectGraph({
   const LINE_WIDTH = 1.5 // Base line width for connections
   const ICON_SCALE = 0.7 // Scale for Lucide icons (1 = 24px, adjust if you want smaller/larger icons)
   const NODE_LABEL_SCALE = 0.6 // Scale for node labels relative to node radius
+  const MAX_LABEL_LENGTH = 12 // Max characters for node labels before truncation
 
   // Icon Paths (SVG Data from Lucide)
   const ICON_PATHS = useMemo(() => ({
@@ -99,6 +101,7 @@ export function ObjectGraph({
         x: COL_WIDTH_COMMIT,
         y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
         hash: commit.hash,
+        label: commit.hash.substring(0, 6),
         type: 'commit',
         depth: -1
       })
@@ -107,11 +110,13 @@ export function ObjectGraph({
     // 2. Trees (Variable Indentation)
     const trees = objects.filter((o) => o.type === 'tree')
     trees.forEach((tree, index) => {
-      const depth = depthMap.get(tree.hash) ?? 0 // Default to 0 if orphan
-      positionMap.set(tree.hash, {
+      const treeObj = tree as TreeObject
+      const depth = depthMap.get(treeObj.hash) ?? 0 // Default to 0 if orphan
+      positionMap.set(treeObj.hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
         y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
-        hash: tree.hash,
+        hash: treeObj.hash,
+        label: treeObj.names.length > 0 ? treeObj.names[0] : treeObj.hash.substring(0, 6),
         type: 'tree',
         depth
       })
@@ -120,15 +125,17 @@ export function ObjectGraph({
     // 3. Blobs (Variable Indentation)
     const blobs = objects.filter((o) => o.type === 'blob')
     blobs.forEach((blob, index) => {
+      const blobObj = blob as BlobObject
       // Offset blobs vertically to start after trees, or interleave?
       // Listing them after trees for now to prevent overlap
       const startY = trees.length * ROW_HEIGHT
-      const depth = depthMap.get(blob.hash) ?? 1
+      const depth = depthMap.get(blobObj.hash) ?? 1
 
-      positionMap.set(blob.hash, {
+      positionMap.set(blobObj.hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
         y: startY + index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
-        hash: blob.hash,
+        hash: blobObj.hash,
+        label: blobObj.names.length > 0 ? blobObj.names[0] : blobObj.hash.substring(0, 6),
         type: 'blob',
         depth
       })
@@ -157,6 +164,7 @@ export function ObjectGraph({
         x: baseX,
         y: baseY,
         hash: tag.hash,
+        label: tag.hash,
         type: 'tag',
         depth: 0
       })
@@ -407,7 +415,13 @@ export function ObjectGraph({
       ctx.fillStyle = '#9ca3af'
       ctx.font = `${NODE_RADIUS * NODE_LABEL_SCALE}px monospace`
       ctx.textAlign = 'center'
-      ctx.fillText(pos.hash.substring(0, 6), pos.x, pos.y + NODE_RADIUS + 14)
+      ctx.fillText(
+        pos.label.length > MAX_LABEL_LENGTH
+          ? pos.label.substring(0, MAX_LABEL_LENGTH) + '...'
+          : pos.label,
+        pos.x,
+        pos.y + NODE_RADIUS + 14
+      )
       // --- Draw Icon ---
       ctx.save()
       // Move to center of node
@@ -434,9 +448,6 @@ export function ObjectGraph({
       } else {
         ctx.stroke(ICON_PATHS.blob)
       }
-
-      // Optional: Show filename if available?
-      // (This requires passing filename data which isn't easy in this raw object view, so skipping for now)
       ctx.restore()
     })
 
