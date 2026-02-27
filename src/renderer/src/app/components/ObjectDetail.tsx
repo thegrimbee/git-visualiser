@@ -179,7 +179,7 @@ export function ObjectDetail({
                       // Render disabled state for deleted files or no-hash entries
                       return (
                         <div key={idx} className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded w-full opacity-60 cursor-not-allowed">
-                           <span className={`text-xs font-bold w-4 flex-shrink-0 ${getStatusColor(change.status)}`}>
+                          <span className={`text-xs font-bold w-4 flex-shrink-0 ${getStatusColor(change.status)}`}>
                             {change.status}
                           </span>
                           <code className="text-xs text-gray-400 font-mono flex-1 text-left truncate">
