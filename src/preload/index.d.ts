@@ -29,6 +29,7 @@ declare global {
           committer?: string
           message?: string
           timestamp?: string
+          diff?: { status: string; path: string; hash: string }[]
         }>
       >
       selectDirectory: () => Promise<string | null>

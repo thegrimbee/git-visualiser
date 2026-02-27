@@ -120,8 +120,9 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
   const commitDiffMap = new Map<string, { status: string; path: string; hash: string }[]>()
   try {
     // Execute git log to get all file changes for all commits
-    // Format: "HASH" followed by file lines
-    // --name-status gives us: M path/to/file or A path/to/file
+    // Format: "COMMIT:<HASH>" followed by raw diff lines
+    // --raw gives us detailed lines with modes, object IDs and status, e.g.:
+    //   :100644 100644 <old_sha> <new_sha> M	src/index.ts
     // --all ensures we see all branches (optional, depending on if you want reachable only)
     // --pretty=format:"COMMIT:%H" acts as a delimiter
     const { stdout } = await execAsync(
@@ -138,26 +139,38 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
         commitDiffMap.set(currentCommitHash, [])
       } else if (currentCommitHash && line.trim()) {
         // Raw line example: :100644 100644 5716ca5... a012c34... M src/index.ts
+        // Raw line example (regular): :100644 100644 5716ca5... a012c34... M	src/index.ts
+        // Raw line example (rename):  :100644 100644 5716ca5... a012c34... R100	old/path.ts	new/path.ts
         if (line.startsWith(':')) {
-            const parts = line.split('\t')
-            const metaPart = parts[0] // :100644 100644 old_sha new_sha status
-            const path = parts.slice(1).join('\t') // path
-            
-            const metaArr = metaPart.split(' ')
-            // metaArr usually: [':oldmode', 'newmode', 'oldsha', 'newsha', 'status']
-            if (metaArr.length >= 5) {
-                const newSha = metaArr[3]
-                console.log(newSha)
-                const status = metaArr[4]
-                
-                // For deletions, newSha is 0000... so we might want to check that
-                // But generally we pass it through. If it's deleted, we can't link to it anyway.
-                
-                const diffs = commitDiffMap.get(currentCommitHash)
-                if (diffs) {
-                    diffs.push({ status, path, hash: newSha })
-                }
+          const parts = line.split('\t')
+          const metaPart = parts[0] // :oldmode newmode old_sha new_sha status
+          const pathParts = parts.slice(1) // one or more paths, depending on status
+          const metaArr = metaPart.split(' ').filter(Boolean)
+          // metaArr usually: [':oldmode', 'newmode', 'oldsha', 'newsha', 'status']
+          if (metaArr.length >= 5) {
+            const newSha = metaArr[3]
+            console.log(newSha)
+            const rawStatus = metaArr[4]
+            // Normalize status to its leading letter (e.g. R100 -> R) while preserving semantics
+            const status = rawStatus.charAt(0)
+            let path: string | undefined
+            if ((status === 'R' || status === 'C') && pathParts.length >= 2) {
+              // Renames / copies have old and new paths: [oldPath, newPath]
+              // const oldPath = pathParts[0]
+              const newPath = pathParts[1]
+              // For our purposes, track the new path as the current location
+              path = newPath
+              // If needed in the future, oldPath can be included in the diff structure
+            } else if (pathParts.length >= 1) {
+              // All other statuses have a single path (may still contain tabs inside the name)
+              path = pathParts.join('\t')
             }
+            // For deletions, newSha is 0000...; we still record the diff but consumers can ignore hash if needed.
+            const diffs = commitDiffMap.get(currentCommitHash)
+            if (diffs && path) {
+              diffs.push({ status, path, hash: newSha })
+            }
+          }
         }
       }
     }

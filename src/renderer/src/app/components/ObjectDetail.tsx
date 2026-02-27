@@ -33,10 +33,11 @@ export function ObjectDetail({
     const parentObjs = commit.parent?.map((p) => getObjectByHash(p)).filter(Boolean) || []
     // TODO: Move each object type rendering to separate components for better organization
     const getStatusColor = (status: string): string => {
-      if (status.startsWith('A')) return 'text-green-400' // Added
-      if (status.startsWith('D')) return 'text-red-400'   // Deleted
-      if (status.startsWith('M')) return 'text-yellow-400' // Modified
-      if (status.startsWith('R')) return 'text-purple-400' // Renamed
+      const baseStatus = status.trim().charAt(0).toUpperCase()
+      if (baseStatus === 'A') return 'text-green-400' // Added
+      if (baseStatus === 'D') return 'text-red-400' // Deleted
+      if (baseStatus === 'M') return 'text-yellow-400' // Modified
+      if (baseStatus === 'R') return 'text-purple-400' // Renamed
       return 'text-gray-400'
     }
     return (
@@ -145,8 +146,8 @@ export function ObjectDetail({
               {commit.diff.length > 0 ? (
                 <div className="space-y-2">
                   {commit.diff.map((change, idx) => {
-                    // Check if hash is valid (not all zeros)
-                    const isBlobAvailable = change.hash && !change.hash.match(/^0+$/)
+                    // Check if hash is valid (not an all-zero deleted-file hash)
+                    const isBlobAvailable = change.hash && !change.hash.match(/^0{40,64}$/)
                     
                     if (isBlobAvailable) {
                       return (
