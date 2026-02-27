@@ -1,9 +1,13 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { join } from 'path'
 import * as fs from 'fs'
 import * as zlib from 'zlib'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+
+const execAsync = promisify(exec)
 
 function createWindow(): void {
   // Create the browser window.
@@ -112,6 +116,68 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
   const objectsPath = join(repoPath, '.git', 'objects')
   const tagsPath = join(repoPath, '.git', 'refs', 'tags')
   const rootFolderName = repoPath.split(/[\\/]/).pop() || 'repository'
+  // map to store diffs for commits: commitHash -> FileChange[]
+  const commitDiffMap = new Map<string, { status: string; path: string; hash: string }[]>()
+  try {
+    // Execute git log to get all file changes for all commits
+    // Format: "COMMIT:<HASH>" followed by raw diff lines
+    // --raw gives us detailed lines with modes, object IDs and status, e.g.:
+    //   :100644 100644 <old_sha> <new_sha> M	src/index.ts
+    // --all ensures we see all branches (optional, depending on if you want reachable only)
+    // --pretty=format:"COMMIT:%H" acts as a delimiter
+    const { stdout } = await execAsync(
+      `git log --all --raw --no-abbrev --pretty=format:"COMMIT:%H"`, 
+      { cwd: repoPath, maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large logs
+    )
+
+    const lines = stdout.split('\n')
+    let currentCommitHash: string | null = null
+
+    for (const line of lines) {
+      if (line.startsWith('COMMIT:')) {
+        currentCommitHash = line.substring(7)
+        commitDiffMap.set(currentCommitHash, [])
+      } else if (currentCommitHash && line.trim()) {
+        // Raw line example: :100644 100644 5716ca5... a012c34... M src/index.ts
+        // Raw line example (regular): :100644 100644 5716ca5... a012c34... M	src/index.ts
+        // Raw line example (rename):  :100644 100644 5716ca5... a012c34... R100	old/path.ts	new/path.ts
+        if (line.startsWith(':')) {
+          const parts = line.split('\t')
+          const metaPart = parts[0] // :oldmode newmode old_sha new_sha status
+          const pathParts = parts.slice(1) // one or more paths, depending on status
+          const metaArr = metaPart.split(' ').filter(Boolean)
+          // metaArr usually: [':oldmode', 'newmode', 'oldsha', 'newsha', 'status']
+          if (metaArr.length >= 5) {
+            const newSha = metaArr[3]
+            console.log(newSha)
+            const rawStatus = metaArr[4]
+            // Normalize status to its leading letter (e.g. R100 -> R) while preserving semantics
+            const status = rawStatus.charAt(0)
+            let path: string | undefined
+            if ((status === 'R' || status === 'C') && pathParts.length >= 2) {
+              // Renames / copies have old and new paths: [oldPath, newPath]
+              // const oldPath = pathParts[0]
+              const newPath = pathParts[1]
+              // For our purposes, track the new path as the current location
+              path = newPath
+              // If needed in the future, oldPath can be included in the diff structure
+            } else if (pathParts.length >= 1) {
+              // All other statuses have a single path (may still contain tabs inside the name)
+              path = pathParts.join('\t')
+            }
+            // For deletions, newSha is 0000...; we still record the diff but consumers can ignore hash if needed.
+            const diffs = commitDiffMap.get(currentCommitHash)
+            if (diffs && path) {
+              diffs.push({ status, path, hash: newSha })
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load commit diffs via git cli:', error)
+    // Continue without diffs if git command fails (e.g. empty repo)
+  }
   if (!fs.existsSync(objectsPath)) {
     throw new Error('No .git/objects found')
   }
@@ -129,6 +195,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
     entries?: { mode: string; name: string; hash: string; type: string }[]
     tree?: string
     parent?: string[]
+    diff?: { status: string; path: string; hash: string }[]
   }[] = []
 
   // 1. Scan for loose object files (folders 00-ff)
@@ -213,6 +280,7 @@ ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
             size,
             references,
             referencedBy: [], // Will fill later
+            diff: type === 'commit' ? (commitDiffMap.get(fullHash) || []) : undefined, 
             ...parsedContent
           })
         } catch (err) {

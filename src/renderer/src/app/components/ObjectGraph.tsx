@@ -164,7 +164,7 @@ export function ObjectGraph({
         x: baseX,
         y: baseY,
         hash: tag.hash,
-        label: tag.hash,
+        label: tag.hash.substring(0, 6),
         type: 'tag',
         depth: 0
       })
@@ -174,8 +174,15 @@ export function ObjectGraph({
   }, [objects])
   const nodePositions = useMemo(() => {
     const merged = new Map(defaultPositions)
+    
+    // Create a set of valid hashes for quick lookup
+    const validHashes = new Set(defaultPositions.keys())
+
     dragOverrides.forEach((pos, hash) => {
-        merged.set(hash, pos)
+        // Only apply override if the object exists in the current dataset
+        if (validHashes.has(hash)) {
+            merged.set(hash, pos)
+        }
     })
     return merged
   }, [defaultPositions, dragOverrides])
