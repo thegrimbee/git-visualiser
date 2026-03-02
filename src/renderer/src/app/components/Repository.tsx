@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  Check
+  Check,
+  Download
 } from 'lucide-react'
 
 export function Repository(): React.JSX.Element {
@@ -27,7 +28,41 @@ export function Repository(): React.JSX.Element {
   )
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+
+  const handleExportJson = (): void => {
+    setIsExporting(true)
+    try {
+      const dataToExport = {
+        repositoryName: repoName,
+        repositoryPath: repoPath,
+        exportDate: new Date().toISOString(),
+        totalObjects: objects.length,
+        objects: objects
+      }
+
+      const jsonString = JSON.stringify(dataToExport, null, 2)
+      const blob = new Blob([jsonString], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = repoName ? `${repoName.replace(/\s+/g, '_')}_git_objects.json` : 'git_objects.json'
+      document.body.appendChild(link)
+      link.click()
+      
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success('git objects exported to JSON successfully')
+    } catch (err) {
+      console.error('Export failed', err)
+      toast.error('Failed to export JSON')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const handleRefresh = async (): Promise<void> => {
     if (!repoPath) return
@@ -177,6 +212,14 @@ export function Repository(): React.JSX.Element {
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={handleExportJson}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-600/30 rounded font-medium text-sm transition-all shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export JSON</span>
+          </button>
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
