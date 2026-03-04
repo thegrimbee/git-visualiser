@@ -53,9 +53,9 @@ export function Repository(): React.JSX.Element {
       link.click()
       
       document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      setTimeout(() => URL.revokeObjectURL(url), 0)
       
-      toast.success('git objects exported to JSON successfully')
+      toast.success('Git objects exported to JSON successfully')
     } catch (err) {
       console.error('Export failed', err)
       toast.error('Failed to export JSON')
@@ -200,30 +200,35 @@ export function Repository(): React.JSX.Element {
 
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e] p-6">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            {repoName}
-            <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
-              Active
-            </span>
-          </h2>
-          <p className="text-gray-500 text-sm mt-1 font-mono">{repoPath}</p>
-        </div>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+              {repoName}
+              <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                Active
+              </span>
+            </h2>
+            <p className="text-gray-500 text-sm mt-1 font-mono">{repoPath}</p>
+          </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={handleExportJson}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-600/30 rounded font-medium text-sm transition-all shadow-sm"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export JSON</span>
-          </button>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className={`
+          <div className="flex gap-2">
+            <button
+              onClick={handleExportJson}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-600/30 rounded font-medium text-sm transition-all shadow-sm"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{isExporting ? 'Exporting...' : 'Export JSON'}</span>
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`
               flex items-center gap-2 px-4 py-2 rounded font-medium text-sm transition-all shadow-sm
               ${
                 showSuccess
@@ -231,27 +236,28 @@ export function Repository(): React.JSX.Element {
                   : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-100'
               }
             `}
-          >
-            {isRefreshing ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : showSuccess ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
-            <span>
-              {isRefreshing ? 'Refreshing...' : showSuccess ? 'Repo Refreshed' : 'Refresh'}
-            </span>
-          </button>
+            >
+              {isRefreshing ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : showSuccess ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              <span>
+                {isRefreshing ? 'Refreshing...' : showSuccess ? 'Repo Refreshed' : 'Refresh'}
+              </span>
+            </button>
 
-          <button
-            onClick={handleSelectDirectory}
-            disabled={isLoading}
-            className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
-          >
-            <HardDrive className="w-4 h-4" />
-            Switch Repo
-          </button>
+            <button
+              onClick={handleSelectDirectory}
+              disabled={isLoading}
+              className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
+            >
+              <HardDrive className="w-4 h-4" />
+              Switch Repo
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-700 text-left"></div>
