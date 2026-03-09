@@ -51,7 +51,7 @@ export function ObjectGraph({
     commit: new Path2D("M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M12 3v6 M12 15v6"),
     tree: new Path2D("M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2Z"),
     blob: new Path2D("M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8"),
-    tag: new Path2D("M12 2l8 8-8 8-8-8 8-8z") // Simple diamond/tag shape placeholder if needed, or rely on color
+    tag: new Path2D("M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.828 8.828a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z M7.5 7.5h.01")
   }), [])
 
   // 1. Calculate Initial Layout
@@ -451,7 +451,7 @@ export function ObjectGraph({
       } else if (pos.type === 'tree') {
         ctx.stroke(ICON_PATHS.tree)
       } else if (pos.type === 'tag') {
-        ctx.stroke(ICON_PATHS.blob)
+        ctx.stroke(ICON_PATHS.tag)
       } else {
         ctx.stroke(ICON_PATHS.blob)
       }
