@@ -7,10 +7,15 @@ import {
   Calendar,
   Hash,
   Link,
-  FileDiff
+  FileDiff,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
 import type { GitObject, CommitObject, TreeObject, BlobObject, TagObject } from './ObjectDatabase'
 import type { JSX } from 'react'
+import { useState } from 'react'
+import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
+import { updateCommitDiffContent } from '@renderer/app/store/slices/gitSlice'
 
 interface ObjectDetailProps {
   object: GitObject | CommitObject | TreeObject | BlobObject | TagObject
@@ -23,11 +28,70 @@ export function ObjectDetail({
   allObjects,
   onSelectObject
 }: ObjectDetailProps): JSX.Element {
+
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
+  const dispatch = useAppDispatch()
+  const repoPath = useAppSelector((state) => state.git.repoPath)
+
   const getObjectByHash = (
     hash: string
   ): GitObject | CommitObject | TreeObject | BlobObject | TagObject | undefined => {
     return allObjects.find((o) => o.hash === hash)
   }
+
+  const toggleFileDiff = async (filePath: string): Promise<void> => { // Make async
+    // Check if we need to fetch content
+    if (object.type === 'commit' && repoPath) {
+      const commit = object as CommitObject
+      const diffEntry = commit.diff?.find((d) => d.path === filePath)
+      
+      if (diffEntry && !diffEntry.content) {
+        try {
+          const content = await window.api.getCommitDiff(repoPath, commit.hash, filePath)
+          if (content) {
+             dispatch(updateCommitDiffContent({ 
+               commitHash: commit.hash, 
+               filePath, 
+               content 
+             }))
+          }
+        } catch (err) {
+          console.error('Failed to fetch diff:', err)
+        }
+      }
+    }
+
+    setExpandedFiles((prev) => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(filePath)) {
+        newExpanded.delete(filePath)
+      } else {
+        newExpanded.add(filePath)
+      }
+      return newExpanded
+    })
+  }
+
+  const renderDiffContent = (diff: string): JSX.Element | null => {
+    if (!diff) return null
+    return (
+      <div className="text-[10px] font-mono whitespace-pre overflow-x-auto p-2 bg-black/30 mt-1 rounded border border-white/5">
+        {diff.split('\n').map((line, i) => {
+          let color = 'text-gray-400'
+          if (line.startsWith('+') && !line.startsWith('+++')) color = 'text-green-400'
+          else if (line.startsWith('-') && !line.startsWith('---')) color = 'text-red-400'
+          else if (line.startsWith('@@')) color = 'text-purple-400'
+          
+          return (
+            <div key={i} className={color}>
+              {line}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
 
   const renderCommitDetail = (commit: CommitObject): JSX.Element => {
     const parentObjs = commit.parent?.map((p) => getObjectByHash(p)).filter(Boolean) || []
@@ -142,52 +206,50 @@ export function ObjectDetail({
               <FileDiff className="w-4 h-4 text-gray-400" />
               <span className="text-xs text-gray-400">Changed Files ({commit.diff.length})</span>
             </div>
-            <div className="bg-[#252526] rounded p-3 max-h-60 overflow-y-auto">
+            <div className="bg-[#252526] rounded p-3 max-h-[400px] overflow-y-auto"> 
               {commit.diff.length > 0 ? (
                 <div className="space-y-2">
                   {commit.diff.map((change, idx) => {
-                    // Check if hash is valid (not an all-zero deleted-file hash)
-                    const isBlobAvailable = change.hash && !change.hash.match(/^0{40,64}$/)
+                    const isExpanded = expandedFiles.has(change.path)
                     
-                    if (isBlobAvailable) {
-                      return (
-                        <button 
-                          key={idx}
-                          onClick={() => onSelectObject(change.hash)}
-                          className="flex items-center gap-2 p-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 rounded transition-colors w-full group"
-                          title={`Go to blob ${change.hash.substring(0,7)}`}
-                        >
-                          {/* Status Indicator */}
-                          <span className={`text-xs font-bold w-4 flex-shrink-0 ${getStatusColor(change.status)}`}>
-                            {change.status}
-                          </span>
-                          
-                          {/* File Path */}
-                          <code className="text-xs text-yellow-300 font-mono flex-1 text-left truncate">
-                            {change.path}
-                          </code>
-                          
-                          {/* Hash Hint (visible on hover) */}
-                          <span className="text-[10px] text-gray-500 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-                            {change.hash.substring(0, 7)}
-                          </span>
+                    return (
+                      <div key={idx} className="flex flex-col">
+                        {/* File Change Area */}
+                        <div className="flex items-center gap-2">
+                           <button 
+                             onClick={() => toggleFileDiff(change.path)}
+                             className="p-1 hover:bg-white/10 rounded cursor-pointer text-gray-400"
+                           >
+                              {isExpanded ? <ChevronDown className="w-3 h-3"/> : <ChevronRight className="w-3 h-3"/>}
+                           </button>
 
-                          <ArrowRight className="w-3 h-3 text-yellow-400" />
-                        </button>
-                      )
-                    } else {
-                      // Render disabled state for deleted files or no-hash entries
-                      return (
-                        <div key={idx} className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded w-full opacity-60 cursor-not-allowed">
-                          <span className={`text-xs font-bold w-4 flex-shrink-0 ${getStatusColor(change.status)}`}>
-                            {change.status}
-                          </span>
-                          <code className="text-xs text-gray-400 font-mono flex-1 text-left truncate">
-                            {change.path}
-                          </code>
+                           <button 
+                              onClick={() => {
+                                 if(change.hash && !change.hash.match(/^0+$/)) onSelectObject(change.hash)
+                              }}
+                              className="flex-1 flex items-center gap-2 p-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 rounded transition-colors"
+                           >
+                              <span className={`text-xs font-bold w-4 flex-shrink-0 ${getStatusColor(change.status)}`}>
+                                {change.status}
+                              </span>
+                              <code className="text-xs text-yellow-300 font-mono flex-1 text-left truncate">
+                                {change.path}
+                              </code>
+                           </button>
                         </div>
-                      )
-                    }
+
+                        {/* Render Diff Area */}
+                        {isExpanded && (
+                          <div className="pl-6 mt-1">
+                             {change.content ? (
+                               renderDiffContent(change.content)
+                             ) : (
+                               <div className="text-xs text-gray-500 italic p-2">No diff available.</div>
+                             )}
+                          </div>
+                        )}
+                      </div>
+                    )
                   })}
                 </div>
               ) : (
@@ -195,7 +257,7 @@ export function ObjectDetail({
               )}
             </div>
           </div>
-          )}
+        )}
       </div>
     )
   }

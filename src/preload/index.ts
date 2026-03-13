@@ -5,7 +5,10 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   getGitObjects: (path: string) => ipcRenderer.invoke('git:get-objects', path),
   getGitHead: (path: string) => ipcRenderer.invoke('git:get-head', path),
-  selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory')
+  selectDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+  getCommitDiff: (repoPath: string, commitHash: string, filePath: string) => ipcRenderer.invoke('git:get-commit-diff', repoPath, commitHash, filePath),
+  getBatchCommitDiffs: (repoPath: string, requests: { commitHash: string; filePath: string }[]) =>
+    ipcRenderer.invoke('git:get-batch-commit-diffs', repoPath, requests)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

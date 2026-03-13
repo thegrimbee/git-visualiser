@@ -4,7 +4,7 @@ import type { GitObject, CommitObject, BlobObject, TreeObject, TagObject } from 
 
 interface ObjectGraphProps {
   objects: Array<GitObject | CommitObject | BlobObject | TreeObject | TagObject>
-  selectedHash?: string
+  selectedHash?: string | null
   onSelectObject: (hash: string) => void
 }
 

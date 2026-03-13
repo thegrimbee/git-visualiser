@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
+import { updateCommitDiffContent } from '@renderer/app/store/slices/gitSlice'
+import { CommitObject } from '@renderer/app/components/ObjectDatabase'
 import {
   setRepository,
   closeRepository,
@@ -31,15 +33,65 @@ export function Repository(): React.JSX.Element {
   const [isExporting, setIsExporting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
 
-  const handleExportJson = (): void => {
+  const handleExportJson = async (): Promise<void> => {
     setIsExporting(true)
     try {
+      // Create a deep copy of objects to modify for export
+      // The `objects` from useAppSelector will not update immediately in this closure
+      const objectsCopy = JSON.parse(JSON.stringify(objects)) as typeof objects
+
+      if (repoPath) {
+        // 1. Identify missing diffs in the copy
+        const missingDiffs: { commitHash: string; filePath: string }[] = []
+        
+        objectsCopy.forEach((obj) => {
+          if (obj.type === 'commit') {
+            // We need to assert type or check properties safely since JSON.parse returns `any` structure
+            // But we cast it above so TS should be happy-ish.
+            // If the structure is complex, we might need better type guards, but for now:
+            const commit = obj as CommitObject
+            if (commit.diff) {
+              commit.diff.forEach((d) => {
+                if (!d.content) {
+                  missingDiffs.push({ commitHash: commit.hash, filePath: d.path })
+                }
+              })
+            }
+          }
+        })
+
+        // 2. Batch fetch if needed
+        if (missingDiffs.length > 0) {
+          const toastId = toast.loading(`Fetching ${missingDiffs.length} diffs for export...`)
+          
+          const results = await window.api.getBatchCommitDiffs(repoPath, missingDiffs)
+          
+          results.forEach((res) => {
+            if (res.content) {
+              // Update the store so the UI reflects the changes
+              dispatch(updateCommitDiffContent({ ...res, content: res.content }))
+              
+              // Update the local copy for export
+              const commit = objectsCopy.find((o) => o.hash === res.commitHash) as CommitObject | undefined
+              if (commit && commit.diff) {
+                const diffEntry = commit.diff.find((d) => d.path === res.filePath)
+                if (diffEntry) {
+                  diffEntry.content = res.content
+                }
+              }
+            }
+          })
+          
+          toast.dismiss(toastId)
+        }
+      }
+
       const dataToExport = {
         repositoryName: repoName,
         repositoryPath: repoPath,
         exportDate: new Date().toISOString(),
-        totalObjects: objects.length,
-        objects: objects
+        totalObjects: objectsCopy.length,
+        objects: objectsCopy // Use the updated copy
       }
 
       const jsonString = JSON.stringify(dataToExport, null, 2)
