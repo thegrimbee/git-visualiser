@@ -2,14 +2,14 @@ import { Provider } from 'react-redux'
 import { store } from './store/store'
 import { useAppDispatch, useAppSelector } from './store/hooks'
 import { setActiveTab } from './store/slices/appSlice'
-import { BranchPanel } from './components/BranchPanel'
+// import { BranchPanel } from './components/BranchPanel'
 import { CommitGraph } from './components/CommitGraph'
 import { FileChanges } from './components/FileChanges'
 import { ObjectDatabase } from './components/ObjectDatabase'
 import { Repository } from './components/Repository'
-import { StatusBar } from './components/StatusBar'
+// import { StatusBar } from './components/StatusBar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
-import { GitCommit, FileText, Database } from 'lucide-react'
+import { Database, Folder } from 'lucide-react'
 
 function AppContent(): React.JSX.Element {
   const dispatch: ReturnType<typeof useAppDispatch> = useAppDispatch()
@@ -19,7 +19,7 @@ function AppContent(): React.JSX.Element {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#1e1e1e] overflow-hidden">
       <div className="flex-1 flex overflow-hidden">
-        <BranchPanel />
+        {/* <BranchPanel /> */}
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <Tabs
@@ -33,10 +33,10 @@ function AppContent(): React.JSX.Element {
                   value="repository"
                   className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white text-gray-400 text-xs gap-2"
                 >
-                  <Database className="w-4 h-4" />
+                  <Folder className="w-4 h-4" />
                   Repository
                 </TabsTrigger>
-                <TabsTrigger
+                {/* <TabsTrigger
                   value="commits"
                   className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white text-gray-400 text-xs gap-2"
                   disabled={!isRepoLoaded}
@@ -51,7 +51,7 @@ function AppContent(): React.JSX.Element {
                 >
                   <FileText className="w-4 h-4" />
                   Changes
-                </TabsTrigger>
+                </TabsTrigger> */}
                 <TabsTrigger
                   value="objects"
                   className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white text-gray-400 text-xs gap-2"
@@ -81,7 +81,7 @@ function AppContent(): React.JSX.Element {
         </div>
       </div>
 
-      <StatusBar />
+      {/* <StatusBar /> */}
     </div>
   )
 }
