@@ -15,13 +15,23 @@ async function processWithConcurrencyLimit<T>(
   limit: number, 
   task: (item: T) => Promise<void>
 ): Promise<void> {
-  const queue = [...items];
-  const workers = Array(Math.min(limit, items.length)).fill(null).map(async () => {
-    while (queue.length > 0) {
-      const item = queue.shift();
-      if (item) await task(item);
-    }
-  });
+  const total = items.length;
+  let currentIndex = 0;
+  const workerCount = Math.min(limit, total);
+  const workers = Array(workerCount)
+    .fill(null)
+    .map(async () => {
+      while (true) {
+        const index = currentIndex++;
+        if (index >= total) {
+          break;
+        }
+        const item = items[index];
+        if (item) {
+          await task(item);
+        }
+      }
+    });
   await Promise.all(workers);
 }
 
@@ -150,15 +160,15 @@ ipcMain.handle('git:get-commit-diff', async (_event, repoPath: string, commitHas
 })
 
 ipcMain.handle('git:get-batch-commit-diffs', async (_event, repoPath: string, requests: { commitHash: string; filePath: string }[]) => {
-  const results: { commitHash: string; filePath: string; content: string | null }[] = []
-  
-  await processWithConcurrencyLimit(requests, 10, async (req) => {
+  const results: { commitHash: string; filePath: string; content: string | null }[] = new Array(requests.length)
+  const indexedRequests = requests.map((req, index) => ({ req, index }))
+  await processWithConcurrencyLimit(indexedRequests, 10, async ({ req, index }) => {
     try {
       const content = await getCommitDiff(repoPath, req.commitHash, req.filePath)
-      results.push({ ...req, content })
+      results[index] = { ...req, content }
     } catch (err) {
       console.error(`Failed to fetch diff for ${req.filePath} in ${req.commitHash}:`, err)
-      results.push({ ...req, content: null })
+      results[index] = { ...req, content: null }
     }
   })
   

@@ -88,14 +88,26 @@ const gitSlice = createSlice({
     loadMoreObjects: (state) => {
       state.displayLimit += 50
     },
-    updateCommitDiffContent: (state, action: PayloadAction<{ commitHash: string; filePath: string; content: string }>) => {
+    updateCommitDiffContent: (
+      state,
+      action: PayloadAction<{ commitHash: string; filePath: string; content: string }>
+    ) => {
       const { commitHash, filePath, content } = action.payload
-      const commit = state.objects.find((obj) => obj.type === 'commit' && obj.hash === commitHash) as CommitObject | undefined
+
+      const commit = state.objects.find(
+        (obj) => obj.type === 'commit' && obj.hash === commitHash
+      ) as CommitObject | undefined
+
       if (commit && commit.diff) {
         const diffEntry = commit.diff.find((d) => d.path === filePath)
         if (diffEntry) {
           diffEntry.content = content
         }
+      }
+
+      // Keep selectedObject in sync so ObjectDetail re-renders immediately
+      if (commit && state.selectedObject?.type === 'commit' && state.selectedObject.hash === commitHash) {
+        state.selectedObject = commit
       }
     },
   }
