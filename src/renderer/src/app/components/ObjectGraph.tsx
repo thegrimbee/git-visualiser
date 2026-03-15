@@ -42,6 +42,7 @@ export function ObjectGraph({
   const NODE_TO_LABELS_GAP = 30 // Vertical gap between node and its label
   const COL_LABEL_SCALE = 0.7 // Scale for column header font size relative to node radius
   const LINE_WIDTH = 1.5 // Base line width for connections
+  const LUCID_ICON_SIZE = 24 // Base size for Lucide icons (used for hit detection and scaling)
   const ICON_SCALE = 0.7 // Scale for Lucide icons (1 = 24px, adjust if you want smaller/larger icons)
   const NODE_LABEL_SCALE = 0.6 // Scale for node labels relative to node radius
   const MAX_LABEL_LENGTH = 20 // Max characters for node labels before truncation
@@ -54,7 +55,7 @@ export function ObjectGraph({
     tag: new Path2D("M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.828 8.828a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z M7.5 7.5h.01")
   }), [])
 
-  // 1. Calculate Initial Layout
+  // 1. Calculate Initial Layout TODO: Handle merges somehow
   const defaultPositions = useMemo(() => {
     const positionMap = new Map<string, NodePosition>()
     const objectMap = new Map(objects.map((o) => [o.hash, o]))
@@ -456,8 +457,6 @@ export function ObjectGraph({
       })
 
     // --- Draw Nodes ---
-
-    // --- Draw Nodes ---
     nodePositions.forEach((pos) => {
       // Find the specific color for this node type
       let typeColor = '#a16207' // default yellow
@@ -504,12 +503,9 @@ export function ObjectGraph({
       ctx.save()
       // Move to center of node
       ctx.translate(pos.x, pos.y)
-      // Reference size for Lucide icons is 24x24.
-      // We want to center it, so we shift back by 12.
-      // We can also scale it down slightly if needed (e.g. 0.8x for 19px icon)
-      const scale = ICON_SCALE * (NODE_RADIUS * 2) / 24 // Scale to fit node size
+      const scale = ICON_SCALE * (NODE_RADIUS * 2) / LUCID_ICON_SIZE
       ctx.scale(scale, scale)
-      ctx.translate(-12, -12)
+      ctx.translate(-LUCID_ICON_SIZE / 2, -LUCID_ICON_SIZE / 2) // Center the icon
 
       ctx.lineWidth = 2
       // Icon color (light/white for contrast)
