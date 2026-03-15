@@ -153,7 +153,7 @@ export function ObjectDatabase(): JSX.Element {
             </div>
           </div>
 
-          {showGuide && <GitObjectsGuide />}
+          {showGuide && <GitObjectsGuide />} {/* Disabled for now*/}
 
           <div className="bg-blue-500/5 border border-blue-500/20 rounded p-3 mb-3">
             <div className="flex items-start gap-2">

@@ -58,111 +58,182 @@ export function ObjectGraph({
   const defaultPositions = useMemo(() => {
     const positionMap = new Map<string, NodePosition>()
     const objectMap = new Map(objects.map((o) => [o.hash, o]))
+    const rowToY = (row: number): number => row * ROW_HEIGHT + NODE_TO_LABELS_GAP
 
-    // --- Step A: Determine Depth of Trees/Blobs ---
-    const depthMap = new Map<string, number>()
+    const commits = objects
+      .filter((o) => o.type === 'commit')
+      .map((o) => o as CommitObject)
+      .sort((a, b) => {
+        const at = Number(a.timestamp ?? 0)
+        const bt = Number(b.timestamp ?? 0)
+        if (at !== bt) return at - bt
+        return a.hash.localeCompare(b.hash)
+      })
 
-    // Initialize traversal from Commits -> Root Trees
-    const queue: { hash: string; depth: number }[] = []
-    const visited = new Set<string>()
+    const getReachableFromTree = (rootTreeHash: string): Set<string> => {
+      const seen = new Set<string>()
+      const queue: string[] = [rootTreeHash]
 
-    const commits = objects.filter((o) => o.type === 'commit') as CommitObject[]
+      while (queue.length > 0) {
+        const current = queue.shift()
+        if (!current || seen.has(current)) continue
+        seen.add(current)
 
-    commits.forEach((c) => {
-      // Commits don't have "depth" in this context, but their root tree is depth 0
-      if (c.tree) queue.push({ hash: c.tree, depth: 0 })
-    })
-
-    // BFS to assign depth
-    while (queue.length > 0) {
-      const { hash, depth } = queue.shift()!
-      if (visited.has(hash)) continue
-      visited.add(hash)
-
-      // Keep the smallest depth found (shortest path from root) -> actually for visual "directory structure",
-      // we usually just want the first valid path found.
-      if (!depthMap.has(hash)) {
-        depthMap.set(hash, depth)
+        const obj = objectMap.get(current)
+        if (obj?.type === 'tree') {
+          const tree = obj as TreeObject
+          for (const entry of tree.entries) queue.push(entry.hash)
+        }
       }
 
-      const obj = objectMap.get(hash)
-      if (obj && obj.type === 'tree') {
-        ; (obj as TreeObject).entries.forEach((entry) => {
-          queue.push({ hash: entry.hash, depth: depth + 1 })
-        })
+      return seen
+    }
+
+    const reachableByCommit = new Map<string, Set<string>>()
+    for (const c of commits) {
+      reachableByCommit.set(c.hash, c.tree ? getReachableFromTree(c.tree) : new Set())
+    }
+
+    const ownerCommitByNode = new Map<string, string>()
+    for (const c of commits) {
+      const reachable = reachableByCommit.get(c.hash) ?? new Set<string>()
+      for (const h of reachable) {
+        if (!ownerCommitByNode.has(h)) ownerCommitByNode.set(h, c.hash)
       }
     }
 
-    // --- Step B: Assign Coordinates ---
+    const getNodeLabel = (obj: GitObject | CommitObject | BlobObject | TreeObject | TagObject): string => {
+      if (obj.type === 'tree') return (obj as TreeObject).names?.[0] ?? obj.hash.slice(0, 6)
+      if (obj.type === 'blob') return (obj as BlobObject).names?.[0] ?? obj.hash.slice(0, 6)
+      if (obj.type === 'commit') return (obj as CommitObject).message
+      return obj.hash.slice(0, 6)
+    }
 
-    // 1. Commits (Left Column)
-    commits.forEach((commit, index) => {
+    const getOwnedChildren = (treeHash: string, commitHash: string): string[] => {
+      const obj = objectMap.get(treeHash)
+      if (!obj || obj.type !== 'tree') return []
+      const tree = obj as TreeObject
+      return tree.entries
+        .map((e) => e.hash)
+        .filter((h) => ownerCommitByNode.get(h) === commitHash)
+    }
+
+    const getSubtreeRows = (hash: string, commitHash: string): number => {
+      const obj = objectMap.get(hash)
+      if (!obj || ownerCommitByNode.get(hash) !== commitHash) return 1
+      if (obj.type !== 'tree') return 1
+
+      const children = getOwnedChildren(hash, commitHash)
+      if (children.length <= 1) {
+        return children.length === 1 ? getSubtreeRows(children[0], commitHash) : 1
+      }
+
+      return children.reduce((sum, childHash) => sum + getSubtreeRows(childHash, commitHash), 0)
+    }
+
+    const placeSubtree = (
+      hash: string,
+      depth: number,
+      startRow: number,
+      commitHash: string
+    ): { centerRow: number; rowsUsed: number } => {
+      const obj = objectMap.get(hash)
+      if (!obj || ownerCommitByNode.get(hash) !== commitHash) {
+        return { centerRow: startRow, rowsUsed: 1 }
+      }
+
+      if (obj.type !== 'tree') {
+        positionMap.set(hash, {
+          x: COL_START_OBJECTS + depth * DEPTH_INDENT,
+          y: rowToY(startRow),
+          hash,
+          label: getNodeLabel(obj),
+          type: obj.type as 'blob' | 'tag' | 'tree' | 'commit',
+          depth
+        })
+        return { centerRow: startRow, rowsUsed: 1 }
+      }
+
+      const children = getOwnedChildren(hash, commitHash)
+
+      if (children.length <= 1) {
+        let rowsUsed = 1
+        if (children.length === 1) {
+          const childResult = placeSubtree(children[0], depth + 1, startRow, commitHash)
+          rowsUsed = childResult.rowsUsed
+        }
+
+        positionMap.set(hash, {
+          x: COL_START_OBJECTS + depth * DEPTH_INDENT,
+          y: rowToY(startRow),
+          hash,
+          label: getNodeLabel(obj),
+          type: 'tree',
+          depth
+        })
+
+        return { centerRow: startRow, rowsUsed }
+      }
+
+      let cursor = startRow
+      const childCenters: number[] = []
+      for (const childHash of children) {
+        const childRows = getSubtreeRows(childHash, commitHash)
+        const childResult = placeSubtree(childHash, depth + 1, cursor, commitHash)
+        childCenters.push(childResult.centerRow)
+        cursor += Math.max(1, childRows)
+      }
+
+      const first = childCenters[0]
+      const last = childCenters[childCenters.length - 1]
+      const centerRow = (first + last) / 2
+
+      positionMap.set(hash, {
+        x: COL_START_OBJECTS + depth * DEPTH_INDENT,
+        y: rowToY(centerRow),
+        hash,
+        label: getNodeLabel(obj),
+        type: 'tree',
+        depth
+      })
+
+      return { centerRow, rowsUsed: Math.max(1, cursor - startRow) }
+    }
+
+    let rowCursor = 0
+    for (const commit of commits) {
+      const startRow = rowCursor
+
+      const rootOwned =
+        !!commit.tree && ownerCommitByNode.get(commit.tree) === commit.hash && objectMap.has(commit.tree)
+
+      const layout = rootOwned
+        ? placeSubtree(commit.tree, 0, startRow, commit.hash)
+        : { centerRow: startRow, rowsUsed: 1 }
+
       positionMap.set(commit.hash, {
         x: COL_WIDTH_COMMIT,
-        y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
+        y: rowToY(layout.centerRow),
         hash: commit.hash,
         label: commit.message,
         type: 'commit',
         depth: -1
       })
-    })
 
-    // 2. Trees (Variable Indentation)
-    const trees = objects.filter((o) => o.type === 'tree')
-    trees.forEach((tree, index) => {
-      const treeObj = tree as TreeObject
-      const depth = depthMap.get(treeObj.hash) ?? 0 // Default to 0 if orphan
-      positionMap.set(treeObj.hash, {
-        x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
-        hash: treeObj.hash,
-        label: treeObj.names.length > 0 ? treeObj.names[0] : treeObj.hash.substring(0, 6),
-        type: 'tree',
-        depth
-      })
-    })
+      rowCursor += Math.max(1, layout.rowsUsed)
+    }
 
-    // 3. Blobs (Variable Indentation)
-    const blobs = objects.filter((o) => o.type === 'blob')
-    blobs.forEach((blob, index) => {
-      const blobObj = blob as BlobObject
-      // Offset blobs vertically to start after trees, or interleave?
-      // Listing them after trees for now to prevent overlap
-      const startY = trees.length * ROW_HEIGHT
-      const depth = depthMap.get(blobObj.hash) ?? 1
-
-      positionMap.set(blobObj.hash, {
-        x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: startY + index * ROW_HEIGHT + NODE_TO_LABELS_GAP,
-        hash: blobObj.hash,
-        label: blobObj.names.length > 0 ? blobObj.names[0] : blobObj.hash.substring(0, 6),
-        type: 'blob',
-        depth
-      })
-    })
-
-    // 4. Tags (Place near their referenced object)
     const tags = objects.filter((o) => o.type === 'tag') as TagObject[]
-    tags.forEach((tag, index) => {
-      const targetObj = objectMap.get(tag.objectHash)
-      let baseX = COL_START_OBJECTS
-      let baseY = index * ROW_HEIGHT + NODE_TO_LABELS_GAP
+    const tagStack = new Map<string, number>()
 
-      // If pointing to a commit, place to the left of it
-      if (targetObj) {
-        const targetPos = positionMap.get(targetObj.hash)
-        if (targetPos) {
-          // Align Y with target, place X to the left
-          baseY = targetPos.y
-          // If multiple tags point to same object, we might overlap. 
-          // For simplicity, let's just place it at fixed offset left.
-          baseX = targetPos.x - 80
-        }
-      }
+    tags.forEach((tag, index) => {
+      const targetPos = positionMap.get(tag.objectHash)
+      const stackIndex = tagStack.get(tag.objectHash) ?? 0
+      tagStack.set(tag.objectHash, stackIndex + 1)
 
       positionMap.set(tag.hash, {
-        x: baseX,
-        y: baseY,
+        x: targetPos ? targetPos.x - 80 : COL_WIDTH_TAG,
+        y: targetPos ? targetPos.y + stackIndex * 20 : rowToY(index),
         hash: tag.hash,
         label: tag.hash.substring(0, 6),
         type: 'tag',
