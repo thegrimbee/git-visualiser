@@ -1,6 +1,6 @@
 {
   "name": "git-visor",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "An Electron application to visualise Git's internal data structures",
   "main": "./out/main/index.js",
   "author": "thegrimbee",

@@ -13,6 +13,7 @@ asarUnpack:
   - resources/**
 win:
   executableName: GitVisor
+  icon: resources/GitVisor-simple-transparent-bg-lg.ico
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -24,6 +25,7 @@ mac:
   entitlementsInherit: null
   gatekeeperAssess: false
   notarize: false
+  executableName: GitVisor
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
