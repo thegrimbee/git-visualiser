@@ -1,6 +1,6 @@
-import type { JSX } from "react"
-import { FileText, Hash, Link, FolderTree, ArrowRight, GitCommit } from "lucide-react"
-import type { GitObject, BlobObject, TreeObject, CommitObject, TagObject } from "../ObjectDatabase"
+import type { JSX } from 'react'
+import { FileText, Hash, Link, FolderTree, ArrowRight, GitCommit } from 'lucide-react'
+import type { GitObject, BlobObject, TreeObject, CommitObject, TagObject } from '../ObjectDatabase'
 
 interface TreeDetailProps {
   tree: TreeObject

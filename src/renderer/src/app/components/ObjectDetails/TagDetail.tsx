@@ -1,6 +1,6 @@
-import type { JSX } from "react"
-import { Hash, Link, ArrowRight } from "lucide-react"
-import type { TagObject } from "../ObjectDatabase"
+import type { JSX } from 'react'
+import { Hash, Link, ArrowRight } from 'lucide-react'
+import type { TagObject } from '../ObjectDatabase'
 
 interface TagDetailProps {
   tag: TagObject

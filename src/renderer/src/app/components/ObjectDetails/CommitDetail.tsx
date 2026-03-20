@@ -1,9 +1,20 @@
-import type { JSX } from "react"
-import { FileText, Hash, FolderTree, ArrowRight, GitCommit, User, Calendar, FileDiff, ChevronDown, ChevronRight } from "lucide-react"
-import type { GitObject, BlobObject, TreeObject, CommitObject, TagObject } from "../ObjectDatabase"
-import { useState } from "react"
-import { useAppDispatch, useAppSelector } from "@renderer/app/store/hooks"
-import { updateCommitDiffContent } from "@renderer/app/store/slices/gitSlice"
+import type { JSX } from 'react'
+import {
+  FileText,
+  Hash,
+  FolderTree,
+  ArrowRight,
+  GitCommit,
+  User,
+  Calendar,
+  FileDiff,
+  ChevronDown,
+  ChevronRight
+} from 'lucide-react'
+import type { GitObject, BlobObject, TreeObject, CommitObject, TagObject } from '../ObjectDatabase'
+import { useState } from 'react'
+import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
+import { updateCommitDiffContent } from '@renderer/app/store/slices/gitSlice'
 
 interface CommitDetailProps {
   commit: CommitObject
