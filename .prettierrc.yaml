@@ -4,4 +4,4 @@ printWidth: 100
 trailingComma: none
 useTabs: false
 tabWidth: 2
-endofLine: auto
+endOfLine: auto
