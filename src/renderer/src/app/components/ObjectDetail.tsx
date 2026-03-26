@@ -1,4 +1,4 @@
-import type { GitObject, CommitObject, TreeObject, BlobObject, TagObject } from './ObjectDatabase'
+import type { GitObject, CommitObject, TreeObject, BlobObject, TagObject } from './ObjectTypes'
 import type { JSX } from 'react'
 import { BlobDetail } from './ObjectDetails/BlobDetail'
 import { TreeDetail } from './ObjectDetails/TreeDetail'

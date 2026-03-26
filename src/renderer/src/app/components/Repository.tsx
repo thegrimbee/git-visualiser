@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
 import { setBranches, updateCommitDiffContent } from '@renderer/app/store/slices/gitSlice'
-import { BranchInfo } from '@renderer/app/components/BranchPanel'
-import { CommitObject } from '@renderer/app/components/ObjectDatabase'
+import { CommitObject } from '@renderer/app/components/ObjectTypes'
 import {
   setRepository,
   closeRepository,
@@ -146,22 +145,9 @@ export function Repository(): React.JSX.Element {
     }
   }
 
-  const fetchBranchList = async (): Promise<BranchInfo[]> => {
-    if (!repoPath) return []
-    try {
-      const branches = await window.api.getGitBranches(repoPath)
-      dispatch(setBranches(branches))
-      return branches
-    } catch (error) {
-      console.error('Error fetching branches:', error)
-      return []
-    }
-  }
-
-  fetchBranchList()
-
   const handleSelectDirectory = async (): Promise<void> => {
     setError(null)
+    setShowSuccess(false)
 
     // 1. Get the absolute path from the system dialog
     const path = await window.api.selectDirectory()
@@ -186,6 +172,12 @@ export function Repository(): React.JSX.Element {
           name: folderName || 'Untitled Repo'
         })
       )
+      if (path) {
+        const branches = await window.api.getGitBranches(path)
+        dispatch(setBranches(branches))
+      } else {
+        setError('Repository loaded but failed to read branches.')
+      }
 
       if (loadedObjects && loadedObjects.length > 0) {
         dispatch(setObjects(loadedObjects))

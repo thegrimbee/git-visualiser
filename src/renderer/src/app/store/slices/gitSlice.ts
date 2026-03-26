@@ -4,8 +4,8 @@ import {
   CommitObject,
   TreeObject,
   BlobObject
-} from '@renderer/app/components/ObjectDatabase'
-import { BranchInfo } from '@renderer/app/components/BranchPanel'
+} from '@renderer/app/components/ObjectTypes'
+import { BranchInfo } from '@renderer/app/components/ObjectTypes'
 
 export interface GitState {
   selectedObject: GitObject | CommitObject | TreeObject | BlobObject | null
