@@ -25,7 +25,7 @@ import {
 
 export function Repository(): React.JSX.Element {
   const dispatch = useAppDispatch()
-  const { repoPath, repoName, isRepoLoaded, objects, isRefreshing } = useAppSelector(
+  const { repoPath, repoName, isRepoLoaded, objects, isRefreshing, branches } = useAppSelector(
     (state) => state.git
   )
   const [error, setError] = useState<string | null>(null)
@@ -43,7 +43,7 @@ export function Repository(): React.JSX.Element {
       if (repoPath) {
         // 1. Identify missing diffs in the copy
         const missingDiffs: { commitHash: string; filePath: string }[] = []
-        
+
         objectsCopy.forEach((obj) => {
           if (obj.type === 'commit') {
             // We need to assert type or check properties safely since JSON.parse returns `any` structure
@@ -63,14 +63,12 @@ export function Repository(): React.JSX.Element {
         // 2. Batch fetch if needed
         if (missingDiffs.length > 0) {
           const toastId = toast.loading(`Fetching ${missingDiffs.length} diffs for export...`)
-          
           const results = await window.api.getBatchCommitDiffs(repoPath, missingDiffs)
-          
           results.forEach((res) => {
             if (res.content) {
               // Update the store so the UI reflects the changes
               dispatch(updateCommitDiffContent({ ...res, content: res.content }))
-              
+
               // Update the local copy for export
               const commit = objectsCopy.find((o) => o.hash === res.commitHash) as CommitObject | undefined
               if (commit && commit.diff) {
@@ -81,7 +79,7 @@ export function Repository(): React.JSX.Element {
               }
             }
           })
-          
+
           toast.dismiss(toastId)
         }
       }
@@ -91,22 +89,23 @@ export function Repository(): React.JSX.Element {
         repositoryPath: repoPath,
         exportDate: new Date().toISOString(),
         totalObjects: objectsCopy.length,
+        branches: branches,
         objects: objectsCopy // Use the updated copy
       }
 
       const jsonString = JSON.stringify(dataToExport, null, 2)
       const blob = new Blob([jsonString], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
-      
+
       const link = document.createElement('a')
       link.href = url
       link.download = repoName ? `${repoName.replace(/\s+/g, '_')}_git_objects.json` : 'git_objects.json'
       document.body.appendChild(link)
       link.click()
-      
+
       document.body.removeChild(link)
       setTimeout(() => URL.revokeObjectURL(url), 0)
-      
+
       toast.success('Git objects exported to JSON successfully')
     } catch (err) {
       console.error('Export failed', err)
