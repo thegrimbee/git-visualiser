@@ -125,14 +125,18 @@ export function ObjectDatabase(): JSX.Element {
     return objects.filter((o) => included.has(o.hash))
   }, [objects, branches, selectedBranch])
 
-  const filteredObjects = useMemo(() => {
-    return branchScopedObjects.filter((obj) => visibleTypes.includes(obj.type))
+  const visibilityMap = useMemo(() => {
+    const map: Map<string, boolean> = new Map()
+    for (const obj of branchScopedObjects) {
+      map.set(obj.hash, visibleTypes.includes(obj.type))
+    }
+    return map
   }, [branchScopedObjects, visibleTypes])
 
   // derived paginated list for the sidebar
   const visibleListObjects = useMemo(() => {
-    return filteredObjects.slice(0, displayLimit)
-  }, [filteredObjects, displayLimit])
+    return branchScopedObjects.filter((obj) => visibilityMap.get(obj.hash)).slice(0, displayLimit)
+  }, [branchScopedObjects, visibilityMap, displayLimit])
 
   // Helper just for checking inclusion in local rendering
   const isTypeVisible = (type: string): boolean => visibleTypes.includes(type)
@@ -226,12 +230,13 @@ export function ObjectDatabase(): JSX.Element {
               />
             ) : (
               <ObjectGraph
-                objects={filteredObjects}
+                objects={branchScopedObjects}
                 selectedHash={selectedObject?.hash}
                 onSelectObject={(hash) => {
                   const obj = objects.find((o) => o.hash === hash)
                   if (obj) dispatch(setSelectedObject(obj))
                 }}
+                visibilityMap={visibilityMap}
               />
             )}
           </div>
