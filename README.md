@@ -15,6 +15,7 @@ An Electron application with React and TypeScript to visualise the internal stat
 - As a user, I want to be able to either see live changes in the repository or refresh the repository so that I can keep the visualization up-to-date with the latest commits.
 - As a user, I want to be able to customize the visualization (e.g. dragging nodes, changing colors) so that I can tailor the experience to my preferences.
 - As a user, I want to be able to see the line by line changes in files across commits so that it is easier to understand what the commit is doing.
+- As a user that is curious about Git branches, I want to be able to see how branches and merges relate to commits so that I can understand the branching model of Git.
 
 ### Features
 
@@ -27,6 +28,7 @@ An Electron application with React and TypeScript to visualise the internal stat
 - Refresh the repository to load the latest changes.
 - Draggable nodes in the graph to allow custom positioning.
 - Line by line diff view for commits to show changes in files.
+- Selection of branches which updates what's shown in the graph to reflect the selected branch.
 
 ### Future Improvements
 
