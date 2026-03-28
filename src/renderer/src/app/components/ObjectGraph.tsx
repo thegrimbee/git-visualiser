@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { JSX } from 'react'
 import type { GitObject, CommitObject, BlobObject, TreeObject, TagObject } from './ObjectTypes'
+import { Legend } from './GraphComponents/Legend'
 
 interface ObjectGraphProps {
   objects: Array<GitObject | CommitObject | BlobObject | TreeObject | TagObject>
@@ -685,24 +686,7 @@ export function ObjectGraph({
         className="w-full h-full block"
         style={{ cursor: draggedNodeHash ? 'grabbing' : isPanning ? 'move' : 'default' }}
       />
-
-      {/* Legend overlay */}
-      <div className="absolute bottom-4 left-4 bg-[#252526] border border-gray-700 rounded p-3 text-xs text-gray-400 shadow-xl pointer-events-none opacity-80">
-        <p className="mb-2 font-semibold">Git Objects:</p>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-          <span>Commit</span>
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full bg-green-600"></div>
-          <span>Tree (Folder)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-600"></div>
-          <span>Blob (File)</span>
-        </div>
-        <div className="mt-2 text-[10px] text-gray-500">Drag to Pan • Click to Inspect</div>
-      </div>
+      <Legend />
     </div>
   )
 }
