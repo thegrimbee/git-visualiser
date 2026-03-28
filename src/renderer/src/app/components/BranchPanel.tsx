@@ -2,12 +2,6 @@ import { GitBranch, Star, Check, Info } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { setSelectedBranch } from '../store/slices/gitSlice'
 
-export interface BranchInfo {
-  name: string
-  commitHash: string
-  current: boolean
-}
-
 export function BranchPanel(): React.JSX.Element {
   const dispatch = useAppDispatch()
   const { headPointer, branches, selectedBranch } = useAppSelector((state) => state.git)

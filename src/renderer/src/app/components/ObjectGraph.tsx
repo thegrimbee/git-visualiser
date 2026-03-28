@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { JSX } from 'react'
-import type { GitObject, CommitObject, BlobObject, TreeObject, TagObject } from './ObjectDatabase'
+import type { GitObject, CommitObject, BlobObject, TreeObject, TagObject } from './ObjectTypes'
 
 interface ObjectGraphProps {
   objects: Array<GitObject | CommitObject | BlobObject | TreeObject | TagObject>
