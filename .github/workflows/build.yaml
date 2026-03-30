@@ -2,11 +2,11 @@ name: Build
 
 on:
   push:
-    branches: [ main, master, test-deployment ]
+    branches: [ main, master ]
     tags:
       - 'v*' # Trigger on version tags (e.g., v1.0.0)
   pull_request:
-    branches: [ main, master, test-deployment ]
+    branches: [ main, master ]
 
 jobs:
   # Job 1: Verify code quality
@@ -48,10 +48,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Show OS Information
-        run: |
-          echo "Running build on OS: $RUNNER_OS"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
