@@ -9,7 +9,8 @@ import { ObjectDatabase } from './components/ObjectDatabase'
 import { Repository } from './components/Repository'
 // import { StatusBar } from './components/StatusBar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
-import { Database, Folder } from 'lucide-react'
+import { Bug, Database, Folder } from 'lucide-react'
+import { ReportBug } from './components/ReportBug'
 
 function AppContent(): React.JSX.Element {
   const dispatch: ReturnType<typeof useAppDispatch> = useAppDispatch()
@@ -60,6 +61,13 @@ function AppContent(): React.JSX.Element {
                   <Database className="w-4 h-4" />
                   Objects
                 </TabsTrigger>
+                <TabsTrigger
+                  value="report-bug"
+                  className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-white text-gray-400 text-xs gap-2"
+                >
+                  <Bug className="w-4 h-4" />
+                  Report Bug
+                </TabsTrigger>
               </TabsList>
             </div>
             <TabsContent value="repository" className="flex-1 m-0 overflow-hidden">
@@ -76,6 +84,10 @@ function AppContent(): React.JSX.Element {
 
             <TabsContent value="objects" className="flex-1 m-0 overflow-hidden">
               <ObjectDatabase />
+            </TabsContent>
+
+            <TabsContent value="report-bug" className="flex-1 m-0 overflow-hidden">
+              <ReportBug />
             </TabsContent>
           </Tabs>
         </div>
