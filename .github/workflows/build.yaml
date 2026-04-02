@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main, master ]
     tags:
-      - ['v*', 'test-deploy*'] # Trigger on version tags (e.g., v1.0.0)
+      - 'v*' # Trigger on version tags (e.g., v1.0.0)
+      - 'test-deployment*'
   pull_request:
     branches: [ main, master ]
 
