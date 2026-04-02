@@ -45,9 +45,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: github
-  owner: git-visor
-  repo: desktop-app
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
