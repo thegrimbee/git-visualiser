@@ -1,10 +1,14 @@
 {
   "name": "git-visor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An Electron application to visualise Git's internal data structures",
   "main": "./out/main/index.js",
   "author": "thegrimbee",
-  "homepage": "https://electron-vite.org",
+  "homepage": "https://github.com/git-visor/desktop-app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/git-visor/desktop-app"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

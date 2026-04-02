@@ -1,12 +1,12 @@
 import { ipcMain } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
-import { exec } from 'child_process'
+import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { parseTreeBuffer, parseCommitContent } from './parser'
 import * as zlib from 'zlib'
 
-const execAsync = promisify(exec)
+const execAsync = promisify(execFile)
 
 export function registerGetObjectsHandler(): void {
   ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
@@ -27,7 +27,8 @@ export function registerGetObjectsHandler(): void {
       // --all ensures we see all branches (optional, depending on if you want reachable only)
       // --pretty=format:"COMMIT:%H" acts as a delimiter
       const { stdout } = await execAsync(
-        `git log --all --raw --no-abbrev --pretty=format:"COMMIT:%H"`,
+        'git',
+        ['log', '--all', '--raw', '--no-abbrev', '--pretty=format:COMMIT:%H'],
         { cwd: repoPath, maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large logs
       )
 
