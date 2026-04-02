@@ -39,6 +39,7 @@ jobs:
     if:  # Run if tagged commit or push to test-deployment branch
       github.event_name == 'push' && (
         startsWith(github.ref, 'refs/tags/v') ||
+        startsWith(github.ref, 'refs/tags/test-deployment') ||
         github.ref == 'refs/heads/test-deployment'
       )
 
