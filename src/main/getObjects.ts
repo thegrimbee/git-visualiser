@@ -161,14 +161,14 @@ export function registerGetObjectsHandler(): void {
               .split('\n')
               .filter(Boolean)
               .map((treeLine) => {
-                const match = treeLine.match(/^(\d+)\s+(blob|tree|commit)\s+([0-9a-f]{40})\t(.+)$/)
+                const match = treeLine.match(/^(\d+)\s+(blob|tree)\s+([0-9a-f]{40})\t(.+)$/)
                 if (!match) return null
                 const [, mode, entryType, entryHash, name] = match
                 return {
                   mode,
                   name,
                   hash: entryHash,
-                  type: entryType === 'tree' ? 'tree' : 'blob'
+                  type: entryType
                 }
               })
               .filter(
