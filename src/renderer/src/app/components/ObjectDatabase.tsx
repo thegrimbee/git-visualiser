@@ -56,14 +56,6 @@ export function ObjectDatabase(): JSX.Element {
   const objects = useAppSelector((state) => state.git.objects)
   const visibleTypes = useAppSelector((state) => state.git.visibleTypes)
   const displayLimit = useAppSelector((state) => state.git.displayLimit)
-
-  const objectCounts = objects.reduce(
-    (acc, obj) => {
-      acc[obj.type] = (acc[obj.type] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
   const branches = useAppSelector((state) => state.git.branches)
   const selectedBranch = useAppSelector((state) => state.git.selectedBranch)
 
@@ -140,7 +132,12 @@ export function ObjectDatabase(): JSX.Element {
 
   // Helper just for checking inclusion in local rendering
   const isTypeVisible = (type: string): boolean => visibleTypes.includes(type)
-
+  const objectCounts = useMemo(() => {
+    return branchScopedObjects.reduce((acc, obj) => {
+      acc[obj.type] = (acc[obj.type] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  }, [branchScopedObjects])
   return (
     <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden h-full">
       <div className="flex-1 border-r border-gray-700 flex flex-col overflow-hidden relative">
