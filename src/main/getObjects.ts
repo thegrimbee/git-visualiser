@@ -198,7 +198,7 @@ export function registerGetObjectsHandler(): void {
       names?: string[]
       objectHash?: string
       tagName?: string
-      objectType?: 'commit' | 'tree' | 'blob'
+      objectType?: 'commit' | 'tree' | 'blob' | 'tag'
       tagger?: string
       message?: string
       timestamp?: number

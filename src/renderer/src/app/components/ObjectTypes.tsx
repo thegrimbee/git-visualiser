@@ -46,7 +46,7 @@ export interface TagObject extends GitObject {
   type: 'tag'
   objectHash: string
   tagName: string
-  objectType?: 'commit' | 'tree' | 'blob'
+  objectType?: 'commit' | 'tree' | 'blob' | 'tag'
   tagger?: string
   message?: string
   timestamp?: number

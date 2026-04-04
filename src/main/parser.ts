@@ -86,7 +86,7 @@ export function parseCommitContent(content: string): {
 export function parseAnnotatedTagContent(content: string): {
   objectHash: string
   tagName: string
-  objectType?: 'commit' | 'tree' | 'blob'
+  objectType?: 'commit' | 'tree' | 'blob' | 'tag'
   tagger?: string
   message?: string
   timestamp?: number
@@ -95,7 +95,7 @@ export function parseAnnotatedTagContent(content: string): {
   const metadata: {
     objectHash: string
     tagName: string
-    objectType?: 'commit' | 'tree' | 'blob'
+    objectType?: 'commit' | 'tree' | 'blob' | 'tag'
     tagger?: string
     message?: string
     timestamp?: number

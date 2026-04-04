@@ -189,7 +189,6 @@ export function Repository(): React.JSX.Element {
     } catch (err: unknown) {
       console.error(err)
       // 4. Handle Missing .git Error
-      // The Main process throws "No .git/objects found" which we catch here
       if (err instanceof Error && /too large|buffer/i.test(err.message)) {
         setError(err.message)
       } else if (err instanceof Error && err.message.includes('No .git')) {
