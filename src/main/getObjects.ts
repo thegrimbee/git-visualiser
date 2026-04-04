@@ -1,20 +1,137 @@
 import { ipcMain } from 'electron'
-import { join } from 'path'
-import * as fs from 'fs'
-import { execFile } from 'child_process'
+import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
-import { parseTreeBuffer, parseCommitContent } from './parser'
-import * as zlib from 'zlib'
+import { parseAnnotatedTagContent, parseCommitContent, parseTreeBuffer } from './parser'
+import { once } from 'events'
 
 const execAsync = promisify(execFile)
 
+type BatchObjectRecord =
+  | {
+      hash: string
+      type: string
+      size: number
+      content: Buffer
+    }
+  | {
+      hash: string
+      missing: true
+    }
+
+function parseCatFileBatchOutput(buffer: Buffer): Map<string, BatchObjectRecord> {
+  const out = new Map<string, BatchObjectRecord>()
+  let cursor = 0
+
+  while (cursor < buffer.length) {
+    const headerEnd = buffer.indexOf(0x0a, cursor) // '\n'
+    if (headerEnd === -1) break
+
+    const header = buffer.subarray(cursor, headerEnd).toString('utf8')
+    cursor = headerEnd + 1
+
+    if (!header) continue
+
+    if (header.endsWith(' missing')) {
+      const [hash] = header.split(' ')
+      out.set(hash, { hash, missing: true })
+      continue
+    }
+
+    const [hash, type, sizeStr] = header.split(' ')
+    const size = Number(sizeStr)
+    if (!hash || !type || !Number.isFinite(size) || size < 0) {
+      throw new Error(`Invalid cat-file --batch header: ${header}`)
+    }
+
+    const end = cursor + size
+    if (end > buffer.length) {
+      throw new Error('Truncated cat-file --batch payload')
+    }
+
+    const content = buffer.subarray(cursor, end)
+    cursor = end
+
+    // Each payload is followed by one '\n'
+    if (cursor < buffer.length && buffer[cursor] === 0x0a) cursor += 1
+
+    out.set(hash, { hash, type, size, content })
+  }
+
+  return out
+}
+
+async function runCatFileBatch(
+  repoPath: string,
+  hashes: string[]
+): Promise<Map<string, BatchObjectRecord>> {
+  if (hashes.length === 0) return new Map()
+
+  const proc = spawn('git', ['cat-file', '--batch'], {
+    cwd: repoPath,
+    stdio: ['pipe', 'pipe', 'pipe']
+  })
+
+  const stdoutChunks: Buffer[] = []
+  const stderrChunks: Buffer[] = []
+  let totalStdout = 0
+  const maxStdoutBytes = 200 * 1024 * 1024 // safety cap
+  let exceededLimit = false
+
+  proc.stdout.on('data', (chunk: Buffer) => {
+    if (exceededLimit) return
+
+    totalStdout += chunk.length
+    if (totalStdout > maxStdoutBytes) {
+      exceededLimit = true
+      proc.kill()
+      return
+    }
+
+    stdoutChunks.push(chunk)
+  })
+
+  proc.stderr.on('data', (chunk: Buffer) => {
+    stderrChunks.push(chunk)
+  })
+
+  proc.stdin.write(hashes.join('\n') + '\n')
+  proc.stdin.end()
+
+  const [code, signal] = (await once(proc, 'close')) as [number | null, NodeJS.Signals | null]
+
+  // Prioritize actionable error for renderer/user.
+  if (exceededLimit) {
+    throw new Error('Repository is too large to load with current buffer limits.')
+  }
+
+  if (code !== 0) {
+    const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
+    const signalText = signal ? `, signal ${signal}` : ''
+    throw new Error(
+      `git cat-file --batch failed (code ${code ?? 'null'}${signalText})${stderr ? `: ${stderr}` : ''}`
+    )
+  }
+
+  return parseCatFileBatchOutput(Buffer.concat(stdoutChunks))
+}
+
+function isMaxBufferExceeded(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as { code?: string; message?: string }
+  return (
+    e.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' ||
+    /maxBuffer|stdout maxBuffer|stderr maxBuffer/i.test(e.message ?? '')
+  )
+}
+
 export function registerGetObjectsHandler(): void {
   ipcMain.handle('git:get-objects', async (_event, repoPath: string) => {
-    const objectsPath = join(repoPath, '.git', 'objects')
-    const tagsPath = join(repoPath, '.git', 'refs', 'tags')
     const rootFolderName = repoPath.split(/[\\/]/).pop() || 'repository'
     // map to store diffs for commits: commitHash -> FileChange[]
-    const commitDiffMap = new Map<string, { status: string; path: string; hash: string; content: string }[]>()
+    const commitDiffMap = new Map<
+      string,
+      { status: string; path: string; hash: string; content: string }[]
+    >()
 
     // const diffContentPromises: Promise<void>[] = []
     // const diffTasks: { commitHash: string; path: string; diffEntry: { content: string } }[] = []
@@ -77,19 +194,22 @@ export function registerGetObjectsHandler(): void {
         }
       }
     } catch (error) {
+      if (isMaxBufferExceeded(error)) {
+        throw new Error('Repository is too large to load with current buffer limits.')
+      }
       console.warn('Failed to load commit diffs via git cli:', error)
-      // Continue without diffs if git command fails (e.g. empty repo)
     }
-    if (!fs.existsSync(objectsPath)) {
-      throw new Error('No .git/objects found')
-    }
-
     const resultObjects: {
       hash: string
       type: string
       size: number
       names?: string[]
       objectHash?: string
+      tagName?: string
+      objectType?: 'commit' | 'tree' | 'blob' | 'tag'
+      tagger?: string
+      message?: string
+      timestamp?: number
       references?: string[]
       referencedBy: string[]
       object?: string
@@ -100,100 +220,140 @@ export function registerGetObjectsHandler(): void {
       diff?: { status: string; path: string; hash: string; content: string }[]
     }[] = []
 
-    // 1. Scan for loose object files (folders 00-ff)
-    // Note: This does not read packed objects (.git/objects/pack), wrapped in try-catch for safety
-    // TODO: In the future, implement reading from packfiles for a complete view of the repository objects
+    // 1. Discover objects via git plumbing (includes loose objects, packs, and alternates)
     try {
-      // Read tags
-      if (fs.existsSync(tagsPath)) {
-        const tagFiles = await fs.promises.readdir(tagsPath)
-        for (const file of tagFiles) {
-          const filePath = join(tagsPath, file)
-          try {
-            const content = await fs.promises.readFile(filePath, 'utf8')
-            const object = content.trim()
-            resultObjects.push({
-              hash: file,
-              type: 'tag',
-              size: 0,
-              objectHash: object,
-              references: [object],
-              referencedBy: []
-            })
-          } catch (err) {
-            console.warn(`Failed to read tag file ${file}`, err)
+      const { stdout: allObjectsStdout } = await execAsync(
+        'git',
+        [
+          'cat-file',
+          '--batch-all-objects',
+          '--batch-check=%(objectname) %(objecttype) %(objectsize)',
+          '--unordered'
+        ],
+        { cwd: repoPath, maxBuffer: 100 * 1024 * 1024 }
+      )
+
+      const objectMetaLines = allObjectsStdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+      const batchHashes = objectMetaLines
+        .map((line) => {
+          const [hash, type, sizeStr] = line.split(' ')
+          const size = Number(sizeStr)
+          if (!hash || !type || !Number.isFinite(size)) return null
+
+          // Skip large blobs in initial load (same behavior as current code).
+          if (type === 'blob' && size >= 10000) return null
+
+          if (type === 'blob' || type === 'tree' || type === 'commit' || type === 'tag') {
+            return hash
           }
+          return null
+        })
+        .filter((h): h is string => Boolean(h))
+
+      const batchMap = await runCatFileBatch(repoPath, batchHashes)
+
+      for (const line of objectMetaLines) {
+        const [hash, type, sizeStr] = line.split(' ')
+        const size = Number(sizeStr)
+        if (!hash || !type || !Number.isFinite(size)) continue
+
+        let parsedContent: {
+          names?: string[]
+          content?: string
+          entries?: { mode: string; name: string; hash: string; type: string }[]
+          tree?: string
+          parent?: string[]
+          objectHash?: string
+        } = {}
+        let references: string[] = []
+
+        try {
+          if (type === 'blob') {
+            parsedContent = { names: [] }
+            if (size >= 10000) {
+              parsedContent.content = '(Binary or too large)'
+            } else {
+              const batchEntry = batchMap.get(hash)
+              if (!batchEntry || 'missing' in batchEntry) continue
+              parsedContent.content = batchEntry.content.toString('utf8')
+            }
+          } else if (type === 'tree') {
+            const batchEntry = batchMap.get(hash)
+            if (!batchEntry || 'missing' in batchEntry) continue
+            const entries = parseTreeBuffer(batchEntry.content)
+            parsedContent = { names: [], entries }
+            references = entries.map((entry) => entry.hash)
+          } else if (type === 'commit') {
+            const batchEntry = batchMap.get(hash)
+            if (!batchEntry || 'missing' in batchEntry) continue
+            parsedContent = parseCommitContent(batchEntry.content.toString('utf8'))
+            if (parsedContent.tree) references.push(parsedContent.tree)
+            if (parsedContent.parent) references.push(...parsedContent.parent)
+          } else if (type === 'tag') {
+            const batchEntry = batchMap.get(hash)
+            if (!batchEntry || 'missing' in batchEntry) continue
+            parsedContent = parseAnnotatedTagContent(batchEntry.content.toString('utf8'))
+            if (parsedContent.objectHash) references.push(parsedContent.objectHash)
+          } else {
+            continue
+          }
+
+          resultObjects.push({
+            hash,
+            type,
+            size,
+            references,
+            referencedBy: [], // Will fill later
+            ...parsedContent,
+            ...(type === 'commit' ? { diff: commitDiffMap.get(hash) || [] } : {})
+          })
+        } catch (err) {
+          console.warn(`Failed to parse object ${hash}`, err)
         }
       }
-      // Read objects
-      const objectDirs = await fs.promises.readdir(objectsPath)
 
-      for (const dir of objectDirs) {
-        if (dir.length !== 2 || dir === 'in' || dir === 'pa') continue // skip info/pack folders TODO: read packed objects later
+      // Handling lightweight tags
+      try {
+        const { stdout: tagRefsStdout } = await execAsync(
+          'git',
+          [
+            'for-each-ref',
+            '--format=%(refname:short)%00%(objectname)%00%(objecttype)',
+            'refs/tags'
+          ],
+          { cwd: repoPath, maxBuffer: 20 * 1024 * 1024 }
+        )
 
-        const dirPath = join(objectsPath, dir)
-        const files = await fs.promises.readdir(dirPath)
+        const tagRefLines = tagRefsStdout.split('\n').filter(Boolean)
 
-        for (const file of files) {
-          const fullHash = dir + file
-          const filePath = join(dirPath, file)
+        for (const line of tagRefLines) {
+          const [tagName, objectHash, objectTypeRaw] = line.split('\0')
 
-          try {
-            const fileBuffer = await fs.promises.readFile(filePath)
-            const inflated = zlib.inflateSync(fileBuffer)
+          if (!tagName || !objectHash) continue
+          if (objectTypeRaw === 'tag') continue // annotated tags already included as real tag objects
 
-            // Split header "type size\0" from content
-            const nullIndex = inflated.indexOf(0)
-            const header = inflated.subarray(0, nullIndex).toString('utf8')
-            const [type, sizeStr] = header.split(' ')
-            const size = parseInt(sizeStr)
-            const contentBuffer = inflated.subarray(nullIndex + 1)
-            let parsedContent: {
-              names?: string[]
-              content?: string
-              entries?: { mode: string; name: string; hash: string; type: string }[]
-              tree?: string
-              parent?: string[]
-              objectHash?: string
-            } = {}
-            let references: string[] = []
-
-            if (type === 'blob') {
-              // Start of file logic, limit size for UI performance
-              parsedContent = {
-                names: [],
-                content: size < 10000 ? contentBuffer.toString('utf8') : '(Binary or too large)'
-              }
-            } else if (type === 'tree') {
-              const entries = parseTreeBuffer(contentBuffer)
-              parsedContent = {
-                names: [],
-                entries: entries
-              }
-              references = entries.map((e) => e.hash)
-            } else if (type === 'commit') {
-              parsedContent = parseCommitContent(contentBuffer.toString('utf8'))
-              if (parsedContent.tree) references.push(parsedContent.tree)
-              if (parsedContent.parent) references.push(...parsedContent.parent)
-            } else if (type === 'tag') {
-              const objectHash = contentBuffer.toString('utf8').split('\n')[0].split(' ')[1]
-              parsedContent = { objectHash }
-              references = [objectHash]
-            }
-
-            resultObjects.push({
-              hash: fullHash,
-              type,
-              size,
-              references,
-              referencedBy: [], // Will fill later
-              ...parsedContent,
-              ...(type === 'commit' ? { diff: commitDiffMap.get(fullHash) || [] } : {})
-            })
-          } catch (err) {
-            console.warn(`Failed to parse object ${fullHash}`, err)
+          if (objectTypeRaw !== 'commit' && objectTypeRaw !== 'tree' && objectTypeRaw !== 'blob') {
+            continue
           }
+          resultObjects.push({
+            hash: tagName,
+            type: 'tag',
+            size: 0,
+            tagName,
+            objectHash,
+            objectType: objectTypeRaw,
+            references: [objectHash],
+            referencedBy: []
+          })
         }
+      } catch (error) {
+        if (isMaxBufferExceeded(error)) {
+          throw new Error('Repository is too large to load with current buffer limits.')
+        }
+        console.warn('Failed to load lightweight tags via git cli:', error)
       }
 
       // 2. Second pass: Calculate referencedBy (Backlinks)
@@ -232,9 +392,11 @@ export function registerGetObjectsHandler(): void {
           obj.names.push(rootFolderName)
         }
       })
-      console.log(resultObjects)
       return resultObjects
     } catch (error) {
+      if (isMaxBufferExceeded(error)) {
+        throw new Error('Repository is too large to load with current buffer limits.')
+      }
       console.error('Error scanning Git objects:', error)
       return []
     }
