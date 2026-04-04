@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { parseCommitContent } from './parser'
+import { parseAnnotatedTagContent, parseCommitContent, parseTreeBuffer } from './parser'
 
 const execAsync = promisify(execFile)
 
@@ -95,6 +95,11 @@ export function registerGetObjectsHandler(): void {
       size: number
       names?: string[]
       objectHash?: string
+      tagName?: string
+      objectType?: 'commit' | 'tree' | 'blob'
+      tagger?: string
+      message?: string
+      timestamp?: number
       references?: string[]
       referencedBy: string[]
       object?: string
@@ -151,31 +156,12 @@ export function registerGetObjectsHandler(): void {
               parsedContent.content = stdout
             }
           } else if (type === 'tree') {
-            // Format: <mode> <type> <hash>\t<name>
-            const { stdout } = await execAsync('git', ['cat-file', '-p', hash], {
+            const { stdout } = (await execAsync('git', ['cat-file', 'tree', hash], {
               cwd: repoPath,
-              maxBuffer: 20 * 1024 * 1024
-            })
-
-            const entries = stdout
-              .split('\n')
-              .filter(Boolean)
-              .map((treeLine) => {
-                const match = treeLine.match(/^(\d+)\s+(blob|tree)\s+([0-9a-f]{40})\t(.+)$/)
-                if (!match) return null
-                const [, mode, entryType, entryHash, name] = match
-                return {
-                  mode,
-                  name,
-                  hash: entryHash,
-                  type: entryType
-                }
-              })
-              .filter(
-                (entry): entry is { mode: string; name: string; hash: string; type: string } =>
-                  Boolean(entry)
-              )
-
+              maxBuffer: 20 * 1024 * 1024,
+              encoding: 'buffer'
+            })) as { stdout: Buffer; stderr: Buffer }
+            const entries = parseTreeBuffer(stdout)
             parsedContent = { names: [], entries }
             references = entries.map((entry) => entry.hash)
           } else if (type === 'commit') {
@@ -187,19 +173,13 @@ export function registerGetObjectsHandler(): void {
             parsedContent = parseCommitContent(stdout)
             if (parsedContent.tree) references.push(parsedContent.tree)
             if (parsedContent.parent) references.push(...parsedContent.parent)
-          } else if (type === 'tag') {
+          } else if (type === 'tag') { // annotated tags
             const { stdout } = await execAsync('git', ['cat-file', '-p', hash], {
               cwd: repoPath,
               maxBuffer: 20 * 1024 * 1024
             })
-
-            const objectLine = stdout.split('\n').find((value) => value.startsWith('object '))
-            const objectHash = objectLine?.split(' ')[1]
-
-            if (objectHash) {
-              parsedContent = { objectHash }
-              references = [objectHash]
-            }
+            parsedContent = parseAnnotatedTagContent(stdout)
+            if (parsedContent.objectHash) references.push(parsedContent.objectHash)
           } else {
             continue
           }
@@ -216,6 +196,47 @@ export function registerGetObjectsHandler(): void {
         } catch (err) {
           console.warn(`Failed to parse object ${hash}`, err)
         }
+      }
+      
+      // Handling lightweight tags
+      try {
+        const { stdout: tagRefsStdout } = await execAsync(
+          'git',
+          [
+            'for-each-ref',
+            '--format=%(refname:short)%00%(objectname)%00%(objecttype)',
+            'refs/tags'
+          ],
+          { cwd: repoPath, maxBuffer: 20 * 1024 * 1024 }
+        )
+
+        const tagRefLines = tagRefsStdout.split('\n').filter(Boolean)
+
+        for (const line of tagRefLines) {
+          const [tagName, objectHash, objectTypeRaw] = line.split('\0')
+
+          if (!tagName || !objectHash) continue
+          if (objectTypeRaw === 'tag') continue // annotated tags already included as real tag objects
+
+          if (objectTypeRaw !== 'commit' && objectTypeRaw !== 'tree' && objectTypeRaw !== 'blob') {
+            continue
+          }
+          resultObjects.push({
+            hash: tagName,
+            type: 'tag',
+            size: 0,
+            tagName,
+            objectHash,
+            objectType: objectTypeRaw,
+            references: [objectHash],
+            referencedBy: []
+          })
+        }
+      } catch (error) {
+        if (isMaxBufferExceeded(error)) {
+          throw new Error('Repository is too large to load with current buffer limits.')
+        }
+        console.warn('Failed to load lightweight tags via git cli:', error)
       }
 
       // 2. Second pass: Calculate referencedBy (Backlinks)

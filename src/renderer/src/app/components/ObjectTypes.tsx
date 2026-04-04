@@ -41,7 +41,13 @@ export interface BlobObject extends GitObject {
   content: string
 }
 
+// Can be lightweight tag or annotated tag
 export interface TagObject extends GitObject {
   type: 'tag'
   objectHash: string
+  tagName: string
+  objectType?: 'commit' | 'tree' | 'blob'
+  tagger?: string
+  message?: string
+  timestamp?: number
 }

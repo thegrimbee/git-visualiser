@@ -82,3 +82,56 @@ export function parseCommitContent(content: string): {
     message: lines.slice(messageStart).join('\n').trim()
   }
 }
+
+export function parseAnnotatedTagContent(content: string): {
+  objectHash: string
+  tagName: string
+  objectType?: 'commit' | 'tree' | 'blob'
+  tagger?: string
+  message?: string
+  timestamp?: number
+} {
+  const lines = content.split('\n')
+  const metadata: {
+    objectHash: string
+    tagName: string
+    objectType?: 'commit' | 'tree' | 'blob'
+    tagger?: string
+    message?: string
+    timestamp?: number
+  } = {
+    objectHash: '',
+    tagName: ''
+  }
+  let messageStart = 0
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (line === '') {
+      messageStart = i + 1
+      break
+    }
+    const [key, ...rest] = line.split(' ')
+    if (key === 'object') metadata.objectHash = rest[0]
+    else if (key === 'type') {
+      const typeValue = rest[0]
+      if (typeValue === 'commit' || typeValue === 'tree' || typeValue === 'blob') {
+        metadata.objectType = typeValue
+      }
+    } else if (key === 'tag') metadata.tagName = rest.join(' ')
+    else if (key === 'tagger') {
+      const value = rest.join(' ')
+      const authorParts = value.split(' ')
+      authorParts.pop() // timezone
+      const timestampToken = authorParts.pop() // second last part is Unix timestamp (seconds since epoch)
+      const timestampNumber = Number(timestampToken)
+      if (Number.isFinite(timestampNumber)) {
+        metadata.timestamp = timestampNumber * 1000 // convert to ms
+      }
+      metadata.tagger = authorParts.join(' ')
+    }
+  }
+  return {
+    ...metadata,
+    message: lines.slice(messageStart).join('\n').trim()
+  }
+}

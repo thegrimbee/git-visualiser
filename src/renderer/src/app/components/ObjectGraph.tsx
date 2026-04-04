@@ -264,7 +264,7 @@ export function ObjectGraph({
         x: targetPos ? targetPos.x - 80 : COL_WIDTH_TAG,
         y: targetPos ? targetPos.y + stackIndex * 20 : rowToY(index),
         hash: tag.hash,
-        label: tag.hash.substring(0, 6),
+        label: tag.tagName || tag.hash.substring(0, 6),
         type: 'tag',
         depth: 0
       })
