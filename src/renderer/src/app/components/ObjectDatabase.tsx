@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
 import { setSelectedObject, setView, toggleVisibleType } from '@renderer/app/store/slices/gitSlice'
 import { useMemo } from 'react'
 import type { JSX } from 'react'
+import { AppButton } from './ui/buttons'
 
 function getTypeColor(type: string): string {
   switch (type) {
@@ -149,7 +150,7 @@ export function ObjectDatabase(): JSX.Element {
             </div>
 
             <div className="flex items-center gap-1 bg-[#252526] rounded p-0.5">
-              <button
+              <AppButton
                 onClick={() => dispatch(setView('list'))}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   view === 'list'
@@ -158,8 +159,8 @@ export function ObjectDatabase(): JSX.Element {
                 }`}
               >
                 List
-              </button>
-              <button
+              </AppButton>
+              <AppButton
                 onClick={() => dispatch(setView('graph'))}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   view === 'graph'
@@ -168,7 +169,7 @@ export function ObjectDatabase(): JSX.Element {
                 }`}
               >
                 Graph
-              </button>
+              </AppButton>
             </div>
           </div>
 
@@ -190,7 +191,7 @@ export function ObjectDatabase(): JSX.Element {
             </h3>
             <div className="flex flex-wrap gap-2">
               {['commit', 'tree', 'blob', 'tag'].map((type) => (
-                <button
+                <AppButton
                   key={type}
                   onClick={() => dispatch(toggleVisibleType(type))}
                   className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-all ${
@@ -208,7 +209,7 @@ export function ObjectDatabase(): JSX.Element {
                   <span className="opacity-50 ml-1 text-[10px] bg-black/20 px-1 rounded-full">
                     {objectCounts[type] || 0}
                   </span>
-                </button>
+                </AppButton>
               ))}
             </div>
           </div>

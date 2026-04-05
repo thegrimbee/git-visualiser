@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { Hash, Link, ArrowRight } from 'lucide-react'
 import type { TagObject } from '../ObjectTypes'
+import { AppButton } from '../ui/buttons'
 
 interface TagDetailProps {
   tag: TagObject
@@ -86,7 +87,7 @@ export function TagDetail({ tag, onSelectObject }: TagDetailProps): JSX.Element 
           <Link className="w-4 h-4 text-gray-400" />
           <span className="text-xs text-gray-400">Points To</span>
         </div>
-        <button
+        <AppButton
           onClick={() => onSelectObject(tag.objectHash)}
           className="flex items-center gap-2 p-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded transition-colors w-full"
         >
@@ -95,7 +96,7 @@ export function TagDetail({ tag, onSelectObject }: TagDetailProps): JSX.Element 
             {tag.objectHash}
           </code>
           <ArrowRight className="w-3 h-3 text-purple-400" />
-        </button>
+        </AppButton>
       </div>
     </div>
   )
