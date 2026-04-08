@@ -93,7 +93,7 @@ jobs:
           pgrep -f "Git Visor" || (echo "App failed to launch" && exit 1)
           
           # Detach the .dmg
-          hdiutil detach "/Volumes/$VOLUME_PATH"
+          hdiutil detach "$VOLUME_PATH"
 
       # Upload the built artifacts (exe, dmg, AppImage) to the GitHub Action Run page
       - name: Upload Artifacts
