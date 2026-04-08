@@ -77,20 +77,20 @@ jobs:
           hdiutil attach "$DMG_PATH"
           
           # Debug: List contents of the mounted volume
-          VOLUME_PATH=$(ls /Volumes | grep "GitVisor")
+          VOLUME_PATH=$(ls /Volumes | grep "Git Visor")
           ls -al "/Volumes/$VOLUME_PATH/"
           
           # Copy the app to Applications folder
-          cp -R "/Volumes/$VOLUME_PATH/GitVisor.app" /Applications/
+          cp -R "/Volumes/$VOLUME_PATH/Git Visor.app" /Applications/
           
           # Open the app to verify it launches
-          open /Applications/GitVisor.app
+          open /Applications/Git Visor.app
           
           # Wait for a few seconds to ensure it runs
           sleep 10
           
           # Check if the app is running
-          pgrep -f "GitVisor" || (echo "App failed to launch" && exit 1)
+          pgrep -f "Git Visor" || (echo "App failed to launch" && exit 1)
           
           # Detach the .dmg
           hdiutil detach "/Volumes/$VOLUME_PATH"
