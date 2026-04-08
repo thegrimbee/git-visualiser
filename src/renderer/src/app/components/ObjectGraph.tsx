@@ -60,7 +60,7 @@ export function ObjectGraph({
     tag: new Path2D("M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.828 8.828a2 2 0 0 0 2.828 0l7.172-7.172a2 2 0 0 0 0-2.828z M7.5 7.5h.01")
   }), [])
 
-  // 1. Calculate Initial Layout TODO: Handle merges somehow
+  // 1. Calculate Initial Layout
   const defaultPositions = useMemo(() => {
     const positionMap = new Map<string, NodePosition>()
     const objectMap = new Map(objects.map((o) => [o.hash, o]))
@@ -79,15 +79,24 @@ export function ObjectGraph({
         }
       }
     }
-    const queue = commitNodes
-      .filter((c) => (childCount.get(c.hash) ?? 0) === 0)
-      .sort((a, b) => Number(b.timestamp ?? 0) - Number(a.timestamp ?? 0))
-
+    const compareCommits = (a: CommitObject, b: CommitObject): number => {
+      const ta = Number(a.timestamp ?? 0)
+      const tb = Number(b.timestamp ?? 0)
+      if (ta !== tb) return tb - ta
+      return a.hash.localeCompare(b.hash)
+    }
+    // technically no need to stable sort since current branch handling ensures the commit history is linear, but just be safe
+    const enqueueSorted = (arr: CommitObject[], item: CommitObject): void => {
+      let i = 0
+      while (i < arr.length && compareCommits(arr[i], item) <= 0) i++
+      arr.splice(i, 0, item)
+    }
+    const queue = commitNodes.filter((c) => (childCount.get(c.hash) ?? 0) === 0)
     const commits: CommitObject[] = []
     const seen = new Set<string>()
-
-    while (queue.length > 0) {
-      const current = queue.shift()!
+    let queueIndex = 0
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex++]!
       if (seen.has(current.hash)) continue
       seen.add(current.hash)
       commits.push(current)
@@ -98,15 +107,14 @@ export function ObjectGraph({
         childCount.set(p, nextCount)
         if (nextCount === 0) {
           const parentCommit = commitByHash.get(p)
-          if (parentCommit) queue.push(parentCommit)
+          if (parentCommit) enqueueSorted(queue, parentCommit)
         }
       }
     }
 
     // fallback in case of disconnected/corrupt commit links
-    for (const c of commitNodes) {
-      if (!seen.has(c.hash)) commits.push(c)
-    }
+    const remaining = commitNodes.filter((c) => !seen.has(c.hash)).sort(compareCommits)
+    for (const c of remaining) commits.push(c)
 
     const treeReachableCache = new Map<string, Set<string>>()
     const getReachableFromTree = (rootTreeHash: string): Set<string> => {
