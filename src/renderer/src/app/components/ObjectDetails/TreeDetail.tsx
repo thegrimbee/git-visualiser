@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { FileText, Hash, Link, FolderTree, ArrowRight, GitCommit } from 'lucide-react'
 import type { GitObject, BlobObject, TreeObject, CommitObject, TagObject } from '../ObjectTypes'
+import { AppButton } from '../ui/buttons'
 
 interface TreeDetailProps {
   tree: TreeObject
@@ -57,7 +58,7 @@ export function TreeDetail({
           {tree.entries.map((entry) => {
             const entryObj = getObjectByHash(entry.hash)
             return (
-              <button
+              <AppButton
                 key={`${entry.mode}-${entry.name}-${entry.hash}`}
                 onClick={() => onSelectObject(entry.hash)}
                 className={`flex items-center gap-2 p-2 rounded transition-colors w-full ${entry.type === 'blob'
@@ -91,7 +92,7 @@ export function TreeDetail({
                   className={`w-3 h-3 ${entry.type === 'blob' ? 'text-yellow-400' : 'text-green-400'
                     }`}
                 />
-              </button>
+              </AppButton>
             )
           })}
         </div>
@@ -112,7 +113,7 @@ export function TreeDetail({
                 const refObj = getObjectByHash(hash)
                 if (!refObj) return null
                 return (
-                  <button
+                  <AppButton
                     key={hash}
                     onClick={() => onSelectObject(hash)}
                     className={`flex items-center gap-2 p-2 rounded transition-colors w-full text-left ${refObj.type === 'commit'
@@ -137,7 +138,7 @@ export function TreeDetail({
                     >
                       {refObj.type}
                     </span>
-                  </button>
+                  </AppButton>
                 )
               })}
             </div>

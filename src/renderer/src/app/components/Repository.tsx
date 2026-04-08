@@ -21,6 +21,7 @@ import {
   Check,
   Download
 } from 'lucide-react'
+import { AppButton } from './ui/buttons'
 
 export function Repository(): React.JSX.Element {
   const dispatch = useAppDispatch()
@@ -232,7 +233,7 @@ export function Repository(): React.JSX.Element {
             </div>
           )}
 
-          <button
+          <AppButton
             onClick={handleSelectDirectory}
             disabled={isLoading}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded font-medium transition-colors flex items-center justify-center gap-2"
@@ -243,7 +244,7 @@ export function Repository(): React.JSX.Element {
               <HardDrive className="w-4 h-4" />
             )}
             {isLoading ? 'Reading .git folder...' : 'Browse Folders'}
-          </button>
+          </AppButton>
 
           {/* <div className="mt-6 pt-6 border-t border-gray-700 text-left">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-3">
@@ -281,7 +282,7 @@ export function Repository(): React.JSX.Element {
           </div>
 
           <div className="flex gap-2">
-            <button
+            <AppButton
               onClick={handleExportJson}
               disabled={isExporting || isLoading}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-600/30 rounded font-medium text-sm transition-all shadow-sm"
@@ -292,8 +293,8 @@ export function Repository(): React.JSX.Element {
                 <Download className="w-4 h-4" />
               )}
               <span>{isExporting ? 'Exporting...' : 'Export JSON'}</span>
-            </button>
-            <button
+            </AppButton>
+            <AppButton
               onClick={handleRefresh}
               disabled={isRefreshing || isLoading}
               className={`
@@ -315,9 +316,9 @@ export function Repository(): React.JSX.Element {
               <span>
                 {isRefreshing ? 'Refreshing...' : showSuccess ? 'Repo Refreshed' : 'Refresh'}
               </span>
-            </button>
+            </AppButton>
 
-            <button
+            <AppButton
               onClick={handleSelectDirectory}
               disabled={isLoading}
               className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#3d3d3d] disabled:opacity-60 text-white rounded font-medium transition-colors flex items-center gap-2 border border-gray-700"
@@ -328,7 +329,7 @@ export function Repository(): React.JSX.Element {
                 <HardDrive className="w-4 h-4" />
               )}
             {isLoading ? 'Switching...' : 'Switch Repo'}
-            </button>
+            </AppButton>
           </div>
         </div>
 

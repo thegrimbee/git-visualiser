@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from '@renderer/app/store/hooks'
 import { setSelectedObject, setView, toggleVisibleType } from '@renderer/app/store/slices/gitSlice'
 import { useMemo } from 'react'
 import type { JSX } from 'react'
+import { AppButton } from './ui/buttons'
 
 function getTypeColor(type: string): string {
   switch (type) {
@@ -56,14 +57,6 @@ export function ObjectDatabase(): JSX.Element {
   const objects = useAppSelector((state) => state.git.objects)
   const visibleTypes = useAppSelector((state) => state.git.visibleTypes)
   const displayLimit = useAppSelector((state) => state.git.displayLimit)
-
-  const objectCounts = objects.reduce(
-    (acc, obj) => {
-      acc[obj.type] = (acc[obj.type] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
   const branches = useAppSelector((state) => state.git.branches)
   const selectedBranch = useAppSelector((state) => state.git.selectedBranch)
 
@@ -140,7 +133,12 @@ export function ObjectDatabase(): JSX.Element {
 
   // Helper just for checking inclusion in local rendering
   const isTypeVisible = (type: string): boolean => visibleTypes.includes(type)
-
+  const objectCounts = useMemo(() => {
+    return branchScopedObjects.reduce((acc, obj) => {
+      acc[obj.type] = (acc[obj.type] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  }, [branchScopedObjects])
   return (
     <div className="flex-1 flex bg-[#1e1e1e] overflow-hidden h-full">
       <div className="flex-1 border-r border-gray-700 flex flex-col overflow-hidden relative">
@@ -152,7 +150,7 @@ export function ObjectDatabase(): JSX.Element {
             </div>
 
             <div className="flex items-center gap-1 bg-[#252526] rounded p-0.5">
-              <button
+              <AppButton
                 onClick={() => dispatch(setView('list'))}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   view === 'list'
@@ -161,8 +159,8 @@ export function ObjectDatabase(): JSX.Element {
                 }`}
               >
                 List
-              </button>
-              <button
+              </AppButton>
+              <AppButton
                 onClick={() => dispatch(setView('graph'))}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   view === 'graph'
@@ -171,7 +169,7 @@ export function ObjectDatabase(): JSX.Element {
                 }`}
               >
                 Graph
-              </button>
+              </AppButton>
             </div>
           </div>
 
@@ -193,7 +191,7 @@ export function ObjectDatabase(): JSX.Element {
             </h3>
             <div className="flex flex-wrap gap-2">
               {['commit', 'tree', 'blob', 'tag'].map((type) => (
-                <button
+                <AppButton
                   key={type}
                   onClick={() => dispatch(toggleVisibleType(type))}
                   className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-all ${
@@ -211,7 +209,7 @@ export function ObjectDatabase(): JSX.Element {
                   <span className="opacity-50 ml-1 text-[10px] bg-black/20 px-1 rounded-full">
                     {objectCounts[type] || 0}
                   </span>
-                </button>
+                </AppButton>
               ))}
             </div>
           </div>

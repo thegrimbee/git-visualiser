@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { FileText, Hash, Link, FolderTree, ArrowRight } from 'lucide-react'
 import type { GitObject, BlobObject, TreeObject, CommitObject, TagObject } from '../ObjectTypes'
+import { AppButton } from '../ui/buttons'
 
 interface BlobDetailProps {
   blob: BlobObject
@@ -90,7 +91,7 @@ export function BlobDetail({
                 if (!refObj || refObj.type !== "tree") return null
                 const entry = (refObj as TreeObject).entries?.find((e) => e.hash === blob.hash)
                 return (
-                  <button
+                  <AppButton
                     key={hash}
                     onClick={() => onSelectObject(hash)}
                     className="flex items-center gap-2 p-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded transition-colors w-full text-left"
@@ -101,7 +102,7 @@ export function BlobDetail({
                       {entry && <span className="text-xs text-gray-500">as {entry.name}</span>}
                     </div>
                     <ArrowRight className="w-3 h-3 text-green-400" />
-                  </button>
+                  </AppButton>
                 )
               })}
             </div>
