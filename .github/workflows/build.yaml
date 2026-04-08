@@ -77,14 +77,14 @@ jobs:
           hdiutil attach "$DMG_PATH"
           
           # Debug: List contents of the mounted volume
-          VOLUME_PATH=$(ls /Volumes | grep "Git Visor")
+          VOLUME_PATH="$(find /Volumes -maxdepth 1 -type d -name "Git Visor*" | head -n 1)"
           ls -al "/Volumes/$VOLUME_PATH/"
           
           # Copy the app to Applications folder
           cp -R "/Volumes/$VOLUME_PATH/Git Visor.app" /Applications/
           
           # Open the app to verify it launches
-          open /Applications/Git Visor.app
+          open "/Applications/Git Visor.app"
           
           # Wait for a few seconds to ensure it runs
           sleep 10
