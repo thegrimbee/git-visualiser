@@ -39,13 +39,13 @@ export function ObjectGraph({
   const NODE_RADIUS = 20
   const ROW_HEIGHT = 70 // Fixed height per node -> ensures spacing
   const COL_WIDTH_TAG = 50 // New column for tags
-  const COL_WIDTH_COMMIT = 150 // Shifted right to make room for tags
+  const COL_WIDTH_COMMIT = 170 // Shifted right to make room for tags
   const COL_START_OBJECTS = 300 // Shifted right
-  const DEPTH_INDENT = 120 // How far right each subfolder moves
+  const DEPTH_INDENT = 140 // How far right each subfolder moves
   const NODE_TO_LABELS_GAP = 30 // Vertical gap between node and its label
   const COL_LABEL_SCALE = 0.7 // Scale for column header font size relative to node radius
   const LINE_WIDTH = 1.5 // Base line width for connections
-  const LUCIDE_ICON_SIZE = 24 // Base size for Lucide icons (used for hit detection and scaling)
+  const LUCIDE_ICON_SIZE = 24 // Base size for Lucide icons (they are designed for 24x24)
   const ICON_SCALE = 0.7 // Scale for Lucide icons (1 = 24px, adjust if you want smaller/larger icons)
   const NODE_LABEL_SCALE = 0.6 // Scale for node labels relative to node radius
   const NODE_LABEL_VERTICAL_GAP = 14 // Vertical gap between node and label for non-commit nodes
@@ -122,30 +122,30 @@ export function ObjectGraph({
         return treeReachableCache.get(rootTreeHash)!
       }
 
-      const seen = new Set<string>();
+      const seen = new Set<string>()
       const queue: string[] = [rootTreeHash]
-      let i = 0;
+      let i = 0
 
       while (i < queue.length) {
-        const current = queue[i++];
-        if (!current || seen.has(current)) continue;
-        seen.add(current);
+        const current = queue[i++]
+        if (!current || seen.has(current)) continue
+        seen.add(current)
 
         const obj = objectMap.get(current)
         if (obj?.type === 'tree') {
           const tree = obj as TreeObject
           for (const entry of tree.entries) {
             const childHash = entry.hash
-            const childObj = objectMap.get(childHash);
+            const childObj = objectMap.get(childHash)
             if (childObj?.type === 'tree') {
-              const childCached = treeReachableCache.get(childHash);
+              const childCached = treeReachableCache.get(childHash)
               if (childCached) {
                 for (const h of childCached) {
                   if (!seen.has(h)) {
                     seen.add(h)
                   }
                 }
-                continue;
+                continue
               }
             }
             queue.push(childHash)
@@ -154,8 +154,8 @@ export function ObjectGraph({
       }
 
       // Store the computed set in the cache
-      treeReachableCache.set(rootTreeHash, seen);
-      return seen;
+      treeReachableCache.set(rootTreeHash, seen)
+      return seen
     }
 
     const reachableByCommit = new Map<string, Set<string>>()
@@ -164,7 +164,8 @@ export function ObjectGraph({
     }
 
     const ownerCommitByNode = new Map<string, string>()
-    for (const c of commits) {
+    for (let i = commits.length - 1; i >= 0; i--) {
+      const c = commits[i]
       const reachable = reachableByCommit.get(c.hash) ?? new Set<string>()
       for (const h of reachable) {
         if (!ownerCommitByNode.has(h)) ownerCommitByNode.set(h, c.hash)
@@ -187,109 +188,99 @@ export function ObjectGraph({
         .filter((h) => ownerCommitByNode.get(h) === commitHash)
     }
 
-    const getSubtreeRows = (hash: string, commitHash: string): number => {
-      const obj = objectMap.get(hash)
-      if (!obj || ownerCommitByNode.get(hash) !== commitHash) return 1
-      if (obj.type !== 'tree') return 1
+    const nextByDepth = new Map<number, Map<number, number>>()
 
-      const children = getOwnedChildren(hash, commitHash)
-      if (children.length <= 1) {
-        return children.length === 1 ? getSubtreeRows(children[0], commitHash) : 1
-      }
-
-      return children.reduce((sum, childHash) => sum + getSubtreeRows(childHash, commitHash), 0)
+    const getDepthMap = (depth: number): Map<number, number> => {
+      const m = nextByDepth.get(depth)
+      if (m) return m
+      const created = new Map<number, number>()
+      nextByDepth.set(depth, created)
+      return created
     }
 
-    const placeSubtree = (
+    const findNextFree = (depth: number, row: number): number => {
+      const m = getDepthMap(depth)
+      const next = m.get(row)
+      if (next === undefined) return row
+      const root = findNextFree(depth, next)
+      if (root !== next) m.set(row, root)
+      return root
+    }
+
+    const occupyRow = (depth: number, row: number): void => {
+      const m = getDepthMap(depth)
+      m.set(row, findNextFree(depth, row + 1))
+    }
+
+    const findFreeRow = (depth: number, preferredRow: number): number => {
+      return findNextFree(depth, preferredRow)
+    }
+
+    const placeOwnedNode = (
       hash: string,
       depth: number,
-      startRow: number,
+      preferredRow: number,
       commitHash: string
-    ): { centerRow: number; rowsUsed: number } => {
+    ): number => {
       const obj = objectMap.get(hash)
       if (!obj || ownerCommitByNode.get(hash) !== commitHash) {
-        return { centerRow: startRow, rowsUsed: 1 }
+        return preferredRow
       }
 
-      if (obj.type !== 'tree') {
-        positionMap.set(hash, {
-          x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-          y: rowToY(startRow),
-          hash,
-          label: getNodeLabel(obj),
-          type: obj.type as 'blob' | 'tag' | 'tree' | 'commit',
-          depth
-        })
-        return { centerRow: startRow, rowsUsed: 1 }
-      }
-
-      const children = getOwnedChildren(hash, commitHash)
-
-      if (children.length <= 1) {
-        let rowsUsed = 1
-        if (children.length === 1) {
-          const childResult = placeSubtree(children[0], depth + 1, startRow, commitHash)
-          rowsUsed = childResult.rowsUsed
-        }
-
-        positionMap.set(hash, {
-          x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-          y: rowToY(startRow),
-          hash,
-          label: getNodeLabel(obj),
-          type: 'tree',
-          depth
-        })
-
-        return { centerRow: startRow, rowsUsed }
-      }
-
-      let cursor = startRow
-      const childCenters: number[] = []
-      for (const childHash of children) {
-        const childRows = getSubtreeRows(childHash, commitHash)
-        const childResult = placeSubtree(childHash, depth + 1, cursor, commitHash)
-        childCenters.push(childResult.centerRow)
-        cursor += Math.max(1, childRows)
-      }
-
-      const first = childCenters[0]
-      const last = childCenters[childCenters.length - 1]
-      const centerRow = (first + last) / 2
+      const row = findFreeRow(depth, preferredRow)
+      occupyRow(depth, row)
 
       positionMap.set(hash, {
         x: COL_START_OBJECTS + depth * DEPTH_INDENT,
-        y: rowToY(centerRow),
+        y: rowToY(row),
         hash,
         label: getNodeLabel(obj),
-        type: 'tree',
+        type: obj.type as 'blob' | 'tag' | 'tree' | 'commit',
         depth
       })
 
-      return { centerRow, rowsUsed: Math.max(1, cursor - startRow) }
+      if (obj.type !== 'tree') {
+        return row
+      }
+
+      const children = getOwnedChildren(hash, commitHash)
+      let lastRow = row
+
+      for (const childHash of children) {
+        // Each child prefers the parent's row (left predecessor). If occupied,
+        // findFreeRow will move it downward.
+        const childRow = placeOwnedNode(childHash, depth + 1, row, commitHash)
+        lastRow = Math.max(lastRow, childRow)
+      }
+
+      return lastRow
     }
 
-    let rowCursor = 0
-    for (const commit of commits) {
-      const startRow = rowCursor
+    const commitRows = new Map<string, number>()
+    for (let i = 0; i < commits.length; i++) {
+      commitRows.set(commits[i].hash, i)
+    }
 
-      const rootOwned =
-        !!commit.tree && ownerCommitByNode.get(commit.tree) === commit.hash && objectMap.has(commit.tree)
-
-      const layout = rootOwned
-        ? placeSubtree(commit.tree, 0, startRow, commit.hash)
-        : { centerRow: startRow, rowsUsed: 1 }
+    // Process from bottom commit to top commit so lower commits reserve rows first.
+    for (let i = commits.length - 1; i >= 0; i--) {
+      const commit = commits[i]
+      const commitRow = commitRows.get(commit.hash) ?? i
 
       positionMap.set(commit.hash, {
         x: COL_WIDTH_COMMIT,
-        y: rowToY(layout.centerRow),
+        y: rowToY(commitRow),
         hash: commit.hash,
         label: commit.message,
         type: 'commit',
         depth: -1
       })
 
-      rowCursor += Math.max(1, layout.rowsUsed)
+      const rootOwned =
+        !!commit.tree && ownerCommitByNode.get(commit.tree) === commit.hash && objectMap.has(commit.tree)
+
+      if (rootOwned && commit.tree) {
+        placeOwnedNode(commit.tree, 0, commitRow, commit.hash)
+      }
     }
 
     const tags = objects.filter((o) => o.type === 'tag') as TagObject[]
@@ -304,7 +295,7 @@ export function ObjectGraph({
         x: targetPos ? targetPos.x - 80 : COL_WIDTH_TAG,
         y: targetPos ? targetPos.y + stackIndex * 20 : rowToY(index),
         hash: tag.hash,
-        label: tag.tagName || tag.hash.substring(0, 6),
+        label: tag.hash.substring(0, 6),
         type: 'tag',
         depth: 0
       })
