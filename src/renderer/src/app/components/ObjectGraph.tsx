@@ -51,6 +51,7 @@ export function ObjectGraph({
   const NODE_LABEL_VERTICAL_GAP = 14 // Vertical gap between node and label for non-commit nodes
   const COMMIT_LABEL_LEFT_GAP = 12 // Horizontal gap between commit node and its label
   const MAX_LABEL_LENGTH = 20 // Max characters for node labels before truncation
+  const INTER_COMMIT_ROW_GAP = 0.4 // Extra empty rows between different commit groups
 
   // Icon Paths (SVG Data from Lucide)
   const ICON_PATHS = useMemo(() => ({
@@ -256,15 +257,11 @@ export function ObjectGraph({
       return lastRow
     }
 
-    const commitRows = new Map<string, number>()
-    for (let i = 0; i < commits.length; i++) {
-      commitRows.set(commits[i].hash, i)
-    }
+    let nextCommitStartRow = 0
 
-    // Process from bottom commit to top commit so lower commits reserve rows first.
-    for (let i = commits.length - 1; i >= 0; i--) {
+    for (let i = 0; i < commits.length; i++) {
       const commit = commits[i]
-      const commitRow = commitRows.get(commit.hash) ?? i
+      const commitRow = nextCommitStartRow
 
       positionMap.set(commit.hash, {
         x: COL_WIDTH_COMMIT,
@@ -278,9 +275,14 @@ export function ObjectGraph({
       const rootOwned =
         !!commit.tree && ownerCommitByNode.get(commit.tree) === commit.hash && objectMap.has(commit.tree)
 
+      let lastUsedRow = commitRow
       if (rootOwned && commit.tree) {
-        placeOwnedNode(commit.tree, 0, commitRow, commit.hash)
+        lastUsedRow = placeOwnedNode(commit.tree, 0, commitRow, commit.hash)
       }
+
+      const reservedHeight = Math.max(1, lastUsedRow - commitRow + 1)
+      const isLastCommit = i === commits.length - 1
+      nextCommitStartRow += reservedHeight + (isLastCommit ? 0 : INTER_COMMIT_ROW_GAP)
     }
 
     const tags = objects.filter((o) => o.type === 'tag') as TagObject[]
