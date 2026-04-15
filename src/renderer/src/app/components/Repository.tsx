@@ -124,9 +124,11 @@ export function Repository(): React.JSX.Element {
 
     try {
       // Re-fetch objects, head, and branches to keep branch-scoped graph in sync
-      const gitObjects = await window.api.getGitObjects(repoPath)
-      const head = await window.api.getGitHead(repoPath)
-      const refreshedBranches = await window.api.getGitBranches(repoPath)
+      const [gitObjects, head, refreshedBranches] = await Promise.all([
+        window.api.getGitObjects(repoPath),
+        window.api.getGitHead(repoPath),
+        window.api.getGitBranches(repoPath)
+      ])
 
       if (gitObjects) {
         dispatch(setObjects(gitObjects))
