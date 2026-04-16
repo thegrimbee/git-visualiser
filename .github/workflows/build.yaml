@@ -32,6 +32,12 @@ jobs:
       - name: Run Typecheck
         run: npm run typecheck
 
+      - name: Run unit tests
+        run: npm run test
+        
+      - name: Run E2E tests
+        run: npm run test:e2e
+
   # Job 2: Build Executables for all platforms
   build-app:
     name: Build ${{ matrix.os }}
@@ -94,16 +100,34 @@ jobs:
           
           # Detach the .dmg
           hdiutil detach "$VOLUME_PATH"
+      - name: Test .exe Installation
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
 
-      # Upload the built artifacts (exe, dmg, AppImage) to the GitHub Action Run page
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.os }}-artifacts
-          path: |
-            dist/*.exe
-            dist/*.zip
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.snap
+          # Find NSIS installer artifact
+          $installer = Get-ChildItem -Path dist -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "No NSIS installer found in dist/"
+          }
+
+          Write-Host "Installing from: $($installer.FullName)"
+          # NSIS silent install
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait
+
+          # Default electron-builder NSIS install path for your productName
+          $installedExe = Join-Path $env:LOCALAPPDATA "Programs\Git Visor\Git Visor.exe"
+          if (-not (Test-Path $installedExe)) {
+            throw "Installed app not found at: $installedExe"
+          }
+
+          Write-Host "Launching installed app: $installedExe"
+          $proc = Start-Process -FilePath $installedExe -PassThru
+          Start-Sleep -Seconds 10
+
+          if ($proc.HasExited) {
+            throw "Installed app exited too early"
+          }
+
+          Stop-Process -Id $proc.Id -Force
