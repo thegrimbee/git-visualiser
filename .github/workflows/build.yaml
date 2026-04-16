@@ -12,7 +12,7 @@ on:
 jobs:
   # Job 1: Verify code quality
   check:
-    name: Lint & Typecheck
+    name: ESLint, Typecheck, and Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +31,19 @@ jobs:
 
       - name: Run Typecheck
         run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Install Linux GUI deps for Electron e2e
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1
+
+      - name: Run E2E tests
+        run: xvfb-run -a npm run test:e2e
+        env:
+          CI: true
 
   # Job 2: Build Executables for all platforms
   build-app:
@@ -94,8 +107,52 @@ jobs:
           
           # Detach the .dmg
           hdiutil detach "$VOLUME_PATH"
+      - name: Test .exe Installation
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
 
-      # Upload the built artifacts (exe, dmg, AppImage) to the GitHub Action Run page
+          # Find NSIS installer artifact
+          $installer = Get-ChildItem -Path dist -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "No NSIS installer found in dist/"
+          }
+
+          # Force deterministic install location (/D should be the last installer arg)
+          $installDir = Join-Path $env:RUNNER_TEMP "GitVisorInstall"
+          if (Test-Path $installDir) {
+            Remove-Item -Recurse -Force $installDir
+          }
+
+          Write-Host "Installing from: $($installer.FullName)"
+          Write-Host "Install dir: $installDir"
+
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait
+
+          if (-not (Test-Path $installDir)) {
+            throw "Installer finished but install dir was not created: $installDir"
+          }
+
+          # Find installed app executable (ignore uninstaller)
+          $appExe = Get-ChildItem -Path $installDir -Recurse -Filter "*.exe" |
+            Where-Object { $_.Name -notmatch "^Uninstall" } |
+            Select-Object -First 1
+
+          if (-not $appExe) {
+            Get-ChildItem -Path $installDir -Recurse | Select-Object FullName
+            throw "No installed app executable found in $installDir"
+          }
+
+          Write-Host "Launching installed app: $($appExe.FullName)"
+          $proc = Start-Process -FilePath $appExe.FullName -PassThru
+          Start-Sleep -Seconds 10
+
+          if ($proc.HasExited) {
+            throw "Installed app exited too early with code $($proc.ExitCode)"
+          }
+
+          Stop-Process -Id $proc.Id -Force
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
