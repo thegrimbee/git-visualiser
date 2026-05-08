@@ -352,9 +352,6 @@ export function ObjectGraph({
       } else if (obj.type === 'commit') {
         const commit = obj as CommitObject
         children.push(commit.tree)
-        // Optionally include parents if we want "history" highlighting? 
-        // User asked for "connected nodes" usually implying the content snapshot. 
-        // Let's stick to the content tree for now.
       } else if (obj.type === 'tree') {
         const tree = obj as TreeObject
         children = tree.entries.map((e) => e.hash)
@@ -473,7 +470,8 @@ export function ObjectGraph({
             visibilityMap.get(commit.hash) &&
             visibilityMap.get(pHash)
           ) {
-            const isHighlighted = fromPos.hash === selectedHash || parentPos.hash === selectedHash
+            // ONLY highlight the link from the selected commit to its parent.
+            const isHighlighted = fromPos.hash === selectedHash
 
             // Draw vertical-ish arc for commit parent
             ctx.strokeStyle = isHighlighted ? '#ffffff' : 'rgba(59, 130, 246, 0.3)'
@@ -623,8 +621,7 @@ export function ObjectGraph({
       ctx.restore()
     })
 
-    // Draw Column Headers (Fixed relative to pan x, but moves with pan y? Or fully fixed?)
-    // Let's make them move with the graph so they identify the columns
+    // Draw Column Headers
     ctx.fillStyle = '#9ca3af'
     ctx.font = `${NODE_RADIUS * COL_LABEL_SCALE}px sans-serif`
     ctx.textAlign = 'center'
