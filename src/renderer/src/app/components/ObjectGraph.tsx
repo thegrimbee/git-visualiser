@@ -398,6 +398,34 @@ export function ObjectGraph({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    const ARROW_LEN = 8
+
+    // Helper to draw arrowheads
+    const drawArrowhead = (
+      x: number,
+      y: number,
+      angle: number,
+      color: string,
+      isHighlighted: boolean
+    ): void => {
+      const arrowLen = ARROW_LEN
+      const arrowAngle = Math.PI / 6 // 30 degrees
+
+      ctx.fillStyle = isHighlighted ? '#ffffff' : color
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(
+        x - arrowLen * Math.cos(angle - arrowAngle),
+        y - arrowLen * Math.sin(angle - arrowAngle)
+      )
+      ctx.lineTo(
+        x - arrowLen * Math.cos(angle + arrowAngle),
+        y - arrowLen * Math.sin(angle + arrowAngle)
+      )
+      ctx.closePath()
+      ctx.fill()
+    }
+
     // Handle High DPI
     const dpr = window.devicePixelRatio || 1
 
@@ -431,15 +459,28 @@ export function ObjectGraph({
       ctx.strokeStyle = isHighlighted ? '#ffffff' : color
       ctx.lineWidth = isHighlighted ? 3 : 1.5
 
+      // The bezier curve arrives horizontally
+      const angle = to.x >= from.x ? 0 : Math.PI
+      
+      // The tip of the arrowhead on the edge of the node
+      const edgeX = to.x - NODE_RADIUS * Math.cos(angle)
+      const edgeY = to.y
+
+      // Shorten the line's endpoint so it stops behind the arrowhead
+      const lineEndX = edgeX - ARROW_LEN * Math.cos(angle)
+
       ctx.beginPath()
       ctx.moveTo(from.x, from.y)
 
-      // Bezier curve for smoother connections
-      const cp1x = from.x + (to.x - from.x) / 2
-      const cp2x = from.x + (to.x - from.x) / 2
-      ctx.bezierCurveTo(cp1x, from.y, cp2x, to.y, to.x, to.y)
+      // Bezier curve to the shortened point
+      const cp1x = from.x + (lineEndX - from.x) / 2
+      const cp2x = from.x + (lineEndX - from.x) / 2
+      ctx.bezierCurveTo(cp1x, from.y, cp2x, edgeY, lineEndX, edgeY)
 
       ctx.stroke()
+
+      // Draw arrowhead at the node edge
+      drawArrowhead(edgeX, edgeY, angle, color, isHighlighted)
     }
 
     // Commit -> Tree
@@ -472,15 +513,33 @@ export function ObjectGraph({
           ) {
             // ONLY highlight the link from the selected commit to its parent.
             const isHighlighted = fromPos.hash === selectedHash
-
+            const linkColor = 'rgba(59, 130, 246, 0.3)'
             // Draw vertical-ish arc for commit parent
-            ctx.strokeStyle = isHighlighted ? '#ffffff' : 'rgba(59, 130, 246, 0.3)'
+            ctx.strokeStyle = isHighlighted ? '#ffffff' : linkColor
+            ctx.lineWidth = isHighlighted ? 3 : 1.5
+
+            // Calculate angle for a straight line to properly orient the arrow
+            const angle = Math.atan2(parentPos.y - fromPos.y, parentPos.x - fromPos.x)
+            
+            // The tip of the arrowhead on the edge of the parent node
+            const edgeX = parentPos.x - NODE_RADIUS * Math.cos(angle)
+            const edgeY = parentPos.y - NODE_RADIUS * Math.sin(angle)
+
+            // Calculate where the line should end (behind the arrowhead)
+            const lineEndX = edgeX - ARROW_LEN * Math.cos(angle)
+            const lineEndY = edgeY - ARROW_LEN * Math.sin(angle)
+            
+            // Draw vertical-ish arc for commit parent
+            ctx.strokeStyle = isHighlighted ? '#ffffff' : linkColor
             ctx.lineWidth = isHighlighted ? 3 : 1.5
 
             ctx.beginPath()
             ctx.moveTo(fromPos.x, fromPos.y)
-            ctx.lineTo(parentPos.x, parentPos.y)
+            ctx.lineTo(lineEndX, lineEndY) // Cut the line short here
             ctx.stroke()
+
+            // Draw arrowhead at the node edge
+            drawArrowhead(edgeX, edgeY, angle, linkColor, isHighlighted)
           }
         })
       })
